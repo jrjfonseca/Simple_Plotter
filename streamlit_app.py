@@ -79,12 +79,8 @@ def enhance_plot(fig):
     
     return fig
 
-# Display banner
-st.markdown("""
-<div style="text-align: center; background-color: #0e1117; padding: 10px; margin-bottom: 20px;">
-    <img src="https://raw.githubusercontent.com/jrjfonseca/Simple_Plotter/main/Cover.jpeg" style="max-width: 100%;">
-</div>
-""", unsafe_allow_html=True)
+# Display banner with a reliable placeholder image
+st.image("https://via.placeholder.com/1200x400/0e1117/ffffff?text=Battery+Lab+-+Electrochemical+Test+Data+Analyzer", use_container_width=True)
 
 # Main title
 st.title("Battery Lab - Electrochemical Test Data Analyzer")
