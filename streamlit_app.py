@@ -1,5 +1,6 @@
 import streamlit as st
 from pathlib import Path
+import base64
 
 # Configure page
 st.set_page_config(
@@ -9,12 +10,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Get the absolute path to the image
-current_dir = Path(__file__).resolve().parent
-image_path = current_dir / "Cover.jpeg"
-
-# Display the cover image with the updated parameter
-st.image(str(image_path), use_container_width=True)
+# Display the cover image directly from file
+try:
+    # Try direct file path first
+    st.image("Cover.jpeg", use_container_width=True)
+except Exception as e:
+    st.error(f"Unable to display image: {str(e)}")
+    st.write("Please check that the Cover.jpeg file is in the same directory as the app.")
 
 # Footer
 st.markdown("---")
