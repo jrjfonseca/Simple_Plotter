@@ -9,8 +9,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Display the cover image
-st.image("Cover.jpeg", use_column_width=True)
+# Get the absolute path to the image
+current_dir = Path(__file__).resolve().parent
+image_path = current_dir / "Cover.jpeg"
+
+# Display the cover image with the updated parameter
+st.image(str(image_path), use_container_width=True)
 
 # Footer
 st.markdown("---")
