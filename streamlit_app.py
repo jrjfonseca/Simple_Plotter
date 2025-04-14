@@ -35,6 +35,7 @@ pio.templates.default = "plotly_white"
 if 'processed_data' not in st.session_state:
     st.session_state.processed_data = None
     st.session_state.has_data = False
+    st.session_state.form_submitted = False
 
 # Function to enhance plot appearance
 def enhance_plot(fig):
@@ -89,10 +90,10 @@ with st.sidebar:
     uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
     
     if uploaded_file is not None:
-        # Form for metadata
+        # Create a form for metadata
+        st.subheader("Cell Metadata")
+        
         with st.form(key="metadata_form"):
-            st.subheader("Cell Metadata")
-            
             # Basic Info
             col1, col2 = st.columns(2)
             with col1:
@@ -134,76 +135,82 @@ with st.sidebar:
                 voltage_range = st.text_input("Voltage Range", placeholder="e.g. 1.5-3.5 V")
                 pressure = st.text_input("Pressure", placeholder="e.g. 2.5 ton 40 min")
                 
-            # Submit button
-            submit_button = st.form_submit_button(label="Process Data")
+            # Submit button - must be inside the form
+            submitted = st.form_submit_button(label="Process Data")
+            if submitted:
+                st.session_state.form_submitted = True
+        
+        # Handle the form submission - this runs after the form based on the session state
+        if st.session_state.form_submitted:
+            # Reset form_submitted for next use
+            st.session_state.form_submitted = False
             
-            if submit_button and uploaded_file is not None:
-                with st.spinner("Processing data..."):
-                    try:
-                        # Save uploaded file to temp location
-                        temp_file = Path(tempfile.gettempdir()) / uploaded_file.name
-                        with open(temp_file, "wb") as f:
-                            f.write(uploaded_file.getvalue())
-                        
-                        # Create cell metadata dictionary
-                        cell_metadata = {
-                            'cell_id': cell_id,
-                            'cathode_type': cathode_type,
-                            'anode_type': anode_type,
-                            'cathode_mass': f"{cathode_mass} mg",
-                            'collector_mass': f"{collector_mass} mg",
-                            'active_material_percentage': active_material_percentage,
-                            'date': date.strftime("%Y-%m-%d")
-                        }
-                        
-                        # Add optional metadata
-                        if cathode_composition:
-                            cell_metadata['cathode_composition'] = cathode_composition
-                        if cathode_mixing_method:
-                            cell_metadata['cathode_mixing_method'] = cathode_mixing_method
-                        if anode_composition:
-                            cell_metadata['anode_composition'] = anode_composition
-                        if anode_mass:
-                            cell_metadata['anode_mass'] = anode_mass
-                        if anode_mixing_method:
-                            cell_metadata['anode_mixing_method'] = anode_mixing_method
-                        if electrolyte:
-                            cell_metadata['electrolyte'] = electrolyte
-                        if electrolyte_quantity:
-                            cell_metadata['electrolyte_quantity'] = electrolyte_quantity
-                        if channel:
-                            cell_metadata['channel'] = channel
-                        if voltage_range:
-                            cell_metadata['voltage_range'] = voltage_range
-                        if c_rate:
-                            cell_metadata['c_rate'] = c_rate
-                        if pressure:
-                            cell_metadata['pressure'] = pressure
-                        
-                        # Process data
-                        df_normalized = ec.load_data(
-                            temp_file,
-                            total_mass=cathode_mass,
-                            am_percentage=active_material_percentage,
-                            collector_mass=collector_mass
-                        )
-                        
-                        # Store in session state
-                        st.session_state.processed_data = {
-                            'df': df_normalized,
-                            'metadata': cell_metadata,
-                            'filename': uploaded_file.name
-                        }
-                        st.session_state.has_data = True
-                        
-                        # Clean up
-                        if temp_file.exists():
-                            os.unlink(temp_file)
-                        
-                        st.success("Data processed successfully!")
-                        
-                    except Exception as e:
-                        st.error(f"Error processing file: {str(e)}")
+            with st.spinner("Processing data..."):
+                try:
+                    # Save uploaded file to temp location
+                    temp_file = Path(tempfile.gettempdir()) / uploaded_file.name
+                    with open(temp_file, "wb") as f:
+                        f.write(uploaded_file.getvalue())
+                    
+                    # Create cell metadata dictionary
+                    cell_metadata = {
+                        'cell_id': cell_id,
+                        'cathode_type': cathode_type,
+                        'anode_type': anode_type,
+                        'cathode_mass': f"{cathode_mass} mg",
+                        'collector_mass': f"{collector_mass} mg",
+                        'active_material_percentage': active_material_percentage,
+                        'date': date.strftime("%Y-%m-%d")
+                    }
+                    
+                    # Add optional metadata
+                    if cathode_composition:
+                        cell_metadata['cathode_composition'] = cathode_composition
+                    if cathode_mixing_method:
+                        cell_metadata['cathode_mixing_method'] = cathode_mixing_method
+                    if anode_composition:
+                        cell_metadata['anode_composition'] = anode_composition
+                    if anode_mass:
+                        cell_metadata['anode_mass'] = anode_mass
+                    if anode_mixing_method:
+                        cell_metadata['anode_mixing_method'] = anode_mixing_method
+                    if electrolyte:
+                        cell_metadata['electrolyte'] = electrolyte
+                    if electrolyte_quantity:
+                        cell_metadata['electrolyte_quantity'] = electrolyte_quantity
+                    if channel:
+                        cell_metadata['channel'] = channel
+                    if voltage_range:
+                        cell_metadata['voltage_range'] = voltage_range
+                    if c_rate:
+                        cell_metadata['c_rate'] = c_rate
+                    if pressure:
+                        cell_metadata['pressure'] = pressure
+                    
+                    # Process data
+                    df_normalized = ec.load_data(
+                        temp_file,
+                        total_mass=cathode_mass,
+                        am_percentage=active_material_percentage,
+                        collector_mass=collector_mass
+                    )
+                    
+                    # Store in session state
+                    st.session_state.processed_data = {
+                        'df': df_normalized,
+                        'metadata': cell_metadata,
+                        'filename': uploaded_file.name
+                    }
+                    st.session_state.has_data = True
+                    
+                    # Clean up
+                    if temp_file.exists():
+                        os.unlink(temp_file)
+                    
+                    st.success("Data processed successfully!")
+                    
+                except Exception as e:
+                    st.error(f"Error processing file: {str(e)}")
 
 # Main content area - show visualization options if data is processed
 if st.session_state.has_data:
