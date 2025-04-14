@@ -1,6 +1,4 @@
 import streamlit as st
-from pathlib import Path
-import base64
 
 # Configure page
 st.set_page_config(
@@ -10,13 +8,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Display the cover image directly from file
-try:
-    # Try direct file path first
-    st.image("Cover.jpeg", use_container_width=True)
-except Exception as e:
-    st.error(f"Unable to display image: {str(e)}")
-    st.write("Please check that the Cover.jpeg file is in the same directory as the app.")
+# Display the image using HTML with GitHub raw content URL
+st.markdown("""
+<div style="display: flex; justify-content: center;">
+    <img src="https://raw.githubusercontent.com/jrjfonseca/Simple_Plotter/main/Cover.jpeg" style="width: 100%;">
+</div>
+""", unsafe_allow_html=True)
 
 # Footer
 st.markdown("---")
