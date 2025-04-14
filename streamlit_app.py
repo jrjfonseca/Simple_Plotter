@@ -97,7 +97,7 @@ with st.sidebar:
             # Basic Info
             col1, col2 = st.columns(2)
             with col1:
-                cell_id = st.text_input("Cell ID", required=True)
+                cell_id = st.text_input("Cell ID")
             with col2:
                 date = st.date_input("Test Date", value=datetime.now())
             
@@ -105,19 +105,19 @@ with st.sidebar:
             st.subheader("Cathode Parameters")
             col1, col2 = st.columns(2)
             with col1:
-                cathode_type = st.text_input("Cathode Type", required=True)
-                cathode_mass = st.number_input("Cathode Mass (mg)", min_value=0.001, format="%.3f", value=20.0, required=True)
-                active_material_percentage = st.number_input("Active Material (%)", min_value=0.1, max_value=100.0, value=75.0, required=True)
+                cathode_type = st.text_input("Cathode Type")
+                cathode_mass = st.number_input("Cathode Mass (mg)", min_value=0.001, format="%.3f", value=20.0)
+                active_material_percentage = st.number_input("Active Material (%)", min_value=0.1, max_value=100.0, value=75.0)
             with col2:
                 cathode_composition = st.text_input("Cathode Composition", placeholder="e.g. 75:20:5 (AM:C:Binder)")
-                collector_mass = st.number_input("Collector Mass (mg)", min_value=0.0, format="%.3f", value=0.0, required=True)
+                collector_mass = st.number_input("Collector Mass (mg)", min_value=0.0, format="%.3f", value=0.0)
                 cathode_mixing_method = st.text_input("Cathode Mixing Method", placeholder="e.g. Vortex, Ball Milling")
             
             # Anode Parameters
             st.subheader("Anode Parameters")
             col1, col2 = st.columns(2)
             with col1:
-                anode_type = st.text_input("Anode Type", required=True)
+                anode_type = st.text_input("Anode Type")
                 anode_mass = st.text_input("Anode Mass (mg)", placeholder="e.g. 15.1 mg")
             with col2:
                 anode_composition = st.text_input("Anode Composition", placeholder="e.g. 90:5:5 (AM:C:Binder)")
@@ -139,6 +139,10 @@ with st.sidebar:
             submitted = st.form_submit_button(label="Process Data")
             if submitted:
                 st.session_state.form_submitted = True
+                # Validate required fields
+                if not cell_id or not cathode_type or not anode_type:
+                    st.error("Please fill in all required fields: Cell ID, Cathode Type, and Anode Type")
+                    st.session_state.form_submitted = False
         
         # Handle the form submission - this runs after the form based on the session state
         if st.session_state.form_submitted:
