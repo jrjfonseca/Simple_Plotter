@@ -1,0 +1,12 @@
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+jinja2>=3.1.2
+python-multipart>=0.0.6
+pandas>=2.0.0
+openpyxl>=3.1.2
+matplotlib>=3.7.0
+numpy>=1.24.0
+plotly>=5.13.0
+scipy>=1.10.0
+kaleido>=0.2.1
+pillow>=9.4.0 
