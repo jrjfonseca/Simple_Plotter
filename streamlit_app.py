@@ -84,7 +84,7 @@ st.markdown("Upload your Excel file containing coin cell test data to visualize 
 
 # Sidebar for inputs
 with st.sidebar:
-    st.header("⚡ Power Up Your Analysis")
+    st.header("🔋 Load Your Cell Data")
     
     # File uploader
     uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
