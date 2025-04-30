@@ -450,7 +450,11 @@ else:
     st.markdown("""
     ## Instructions
     1. Upload your Excel file with electrochemical test data using the sidebar
-    2. Fill in the required metadata fields
+    2. Fill in the required metadata fields:
+       - **Cell ID** (mandatory)
+       - **Cathode Type** (mandatory)
+       - **Anode Type** (mandatory)
+       - Other fields are optional but recommended for comprehensive analysis
     3. Click "Process Data" to analyze your file
     4. Choose from different visualization options:
         - Charge-Discharge Curves
