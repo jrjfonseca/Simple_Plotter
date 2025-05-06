@@ -38,6 +38,7 @@ if 'processed_data' not in st.session_state:
     st.session_state.processed_data = None
     st.session_state.has_data = False
     st.session_state.form_submitted = False
+    st.session_state.ready_for_new_cell = False  # Flag to indicate if we're ready for a new cell input
     
 # Initialize multi-cell session state
 if 'cells' not in st.session_state:
@@ -97,181 +98,237 @@ st.markdown("Upload your Excel file containing coin cell test data to visualize 
 with st.sidebar:
     st.header("🔋 Load Your Cell Data")
     
-    # File uploader
-    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
-    
-    if uploaded_file is not None:
-        # Create a form for metadata
-        st.subheader("Cell Metadata")
+    # Button to clear current cell data and allow new input
+    if st.session_state.has_data and not st.session_state.ready_for_new_cell:
+        col1, col2 = st.columns(2)
         
-        with st.form(key="metadata_form"):
-            # Basic Info
-            col1, col2 = st.columns(2)
-            with col1:
-                cell_id = st.text_input("Cell ID")
-            with col2:
-                date = st.date_input("Test Date", value=datetime.now())
-            
-            # Cathode Parameters
-            st.subheader("Cathode Parameters")
-            col1, col2 = st.columns(2)
-            with col1:
-                cathode_type = st.text_input("Cathode Type")
-                cathode_mass = st.number_input("Cathode Mass (mg)", min_value=0.001, format="%.3f", value=20.0)
-                active_material_percentage = st.number_input("Active Material (%)", min_value=0.1, max_value=100.0, value=75.0)
-            with col2:
-                cathode_composition = st.text_input("Cathode Composition", placeholder="e.g. 75:20:5 (AM:C:Binder)")
-                collector_mass = st.number_input("Collector Mass (mg)", min_value=0.0, format="%.3f", value=0.0)
-                cathode_mixing_method = st.text_input("Cathode Mixing Method", placeholder="e.g. Vortex, Ball Milling")
-            
-            # Anode Parameters
-            st.subheader("Anode Parameters")
-            col1, col2 = st.columns(2)
-            with col1:
-                anode_type = st.text_input("Anode Type")
-                anode_mass = st.text_input("Anode Mass (mg)", placeholder="e.g. 15.1 mg")
-            with col2:
-                anode_composition = st.text_input("Anode Composition", placeholder="e.g. 90:5:5 (AM:C:Binder)")
-                anode_mixing_method = st.text_input("Anode Mixing Method", placeholder="e.g. Dry mixing")
-            
-            # Cell Parameters
-            st.subheader("Cell Parameters")
-            col1, col2 = st.columns(2)
-            with col1:
-                electrolyte = st.text_input("Electrolyte", placeholder="e.g. 1M LiPF6 in EC:EMC (1:1)")
-                channel = st.text_input("Channel", placeholder="e.g. 8 VLC")
-                c_rate = st.text_input("C-Rate", placeholder="e.g. 0.05C")
-            with col2:
-                electrolyte_quantity = st.text_input("Electrolyte Quantity", placeholder="e.g. 200 µL")
-                voltage_range = st.text_input("Voltage Range", placeholder="e.g. 1.5-3.5 V")
-                pressure = st.text_input("Pressure", placeholder="e.g. 2.5 ton 40 min")
+        with col1:
+            # Add to multi-cell collection
+            if st.button("➕ Add to Comparison", key="add_to_comparison"):
+                cell_id = st.session_state.processed_data['metadata']['cell_id']
+                cell_key = f"{cell_id}_{datetime.now().strftime('%H%M%S')}"
                 
-            # Submit button - must be inside the form
-            submitted = st.form_submit_button(label="Process Data")
-            if submitted:
-                st.session_state.form_submitted = True
-                # Validate required fields
-                if not cell_id or not cathode_type or not anode_type:
-                    st.error("Please fill in all required fields: Cell ID, Cathode Type, and Anode Type")
-                    st.session_state.form_submitted = False
+                st.session_state.cells[cell_key] = {
+                    'df': st.session_state.processed_data['df'].copy(),
+                    'metadata': st.session_state.processed_data['metadata'].copy(),
+                    'filename': st.session_state.processed_data['filename'],
+                    'display_name': cell_id
+                }
+                
+                st.session_state.selected_cells.append(cell_key)
+                st.session_state.has_multiple_cells = len(st.session_state.cells) > 1
+                st.success(f"Added {cell_id} to comparison!")
         
-        # Handle the form submission - this runs after the form based on the session state
-        if st.session_state.form_submitted:
-            # Reset form_submitted for next use
-            st.session_state.form_submitted = False
+        with col2:
+            # Clear current cell to process a new one
+            if st.button("🔄 Load New Cell", key="load_new_cell"):
+                st.session_state.has_data = False
+                st.session_state.processed_data = None
+                st.session_state.ready_for_new_cell = True
+                st.rerun()
+    
+    # Show file uploader if no data is loaded or ready for new cell
+    if not st.session_state.has_data or st.session_state.ready_for_new_cell:
+        st.session_state.ready_for_new_cell = False  # Reset the flag
+        
+        # File uploader
+        uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
+        
+        if uploaded_file is not None:
+            # Create a form for metadata
+            st.subheader("Cell Metadata")
             
-            with st.spinner("Processing data..."):
-                try:
-                    # Save uploaded file to temp location
-                    temp_file = Path(tempfile.gettempdir()) / uploaded_file.name
-                    with open(temp_file, "wb") as f:
-                        f.write(uploaded_file.getvalue())
+            with st.form(key="metadata_form"):
+                # Basic Info
+                col1, col2 = st.columns(2)
+                with col1:
+                    cell_id = st.text_input("Cell ID")
+                with col2:
+                    date = st.date_input("Test Date", value=datetime.now())
+                
+                # Cathode Parameters
+                st.subheader("Cathode Parameters")
+                col1, col2 = st.columns(2)
+                with col1:
+                    cathode_type = st.text_input("Cathode Type")
+                    cathode_mass = st.number_input("Cathode Mass (mg)", min_value=0.001, format="%.3f", value=20.0)
+                    active_material_percentage = st.number_input("Active Material (%)", min_value=0.1, max_value=100.0, value=75.0)
+                with col2:
+                    cathode_composition = st.text_input("Cathode Composition", placeholder="e.g. 75:20:5 (AM:C:Binder)")
+                    collector_mass = st.number_input("Collector Mass (mg)", min_value=0.0, format="%.3f", value=0.0)
+                    cathode_mixing_method = st.text_input("Cathode Mixing Method", placeholder="e.g. Vortex, Ball Milling")
+                
+                # Anode Parameters
+                st.subheader("Anode Parameters")
+                col1, col2 = st.columns(2)
+                with col1:
+                    anode_type = st.text_input("Anode Type")
+                    anode_mass = st.text_input("Anode Mass (mg)", placeholder="e.g. 15.1 mg")
+                with col2:
+                    anode_composition = st.text_input("Anode Composition", placeholder="e.g. 90:5:5 (AM:C:Binder)")
+                    anode_mixing_method = st.text_input("Anode Mixing Method", placeholder="e.g. Dry mixing")
+                
+                # Cell Parameters
+                st.subheader("Cell Parameters")
+                col1, col2 = st.columns(2)
+                with col1:
+                    electrolyte = st.text_input("Electrolyte", placeholder="e.g. 1M LiPF6 in EC:EMC (1:1)")
+                    channel = st.text_input("Channel", placeholder="e.g. 8 VLC")
+                    c_rate = st.text_input("C-Rate", placeholder="e.g. 0.05C")
+                with col2:
+                    electrolyte_quantity = st.text_input("Electrolyte Quantity", placeholder="e.g. 200 µL")
+                    voltage_range = st.text_input("Voltage Range", placeholder="e.g. 1.5-3.5 V")
+                    pressure = st.text_input("Pressure", placeholder="e.g. 2.5 ton 40 min")
                     
-                    # Create cell metadata dictionary
-                    cell_metadata = {
-                        'cell_id': cell_id,
-                        'cathode_type': cathode_type,
-                        'anode_type': anode_type,
-                        'cathode_mass': f"{cathode_mass} mg",
-                        'collector_mass': f"{collector_mass} mg",
-                        'active_material_percentage': active_material_percentage,
-                        'date': date.strftime("%Y-%m-%d")
-                    }
-                    
-                    # Add optional metadata
-                    if cathode_composition:
-                        cell_metadata['cathode_composition'] = cathode_composition
-                    if cathode_mixing_method:
-                        cell_metadata['cathode_mixing_method'] = cathode_mixing_method
-                    if anode_composition:
-                        cell_metadata['anode_composition'] = anode_composition
-                    if anode_mass:
-                        cell_metadata['anode_mass'] = anode_mass
-                    if anode_mixing_method:
-                        cell_metadata['anode_mixing_method'] = anode_mixing_method
-                    if electrolyte:
-                        cell_metadata['electrolyte'] = electrolyte
-                    if electrolyte_quantity:
-                        cell_metadata['electrolyte_quantity'] = electrolyte_quantity
-                    if channel:
-                        cell_metadata['channel'] = channel
-                    if voltage_range:
-                        cell_metadata['voltage_range'] = voltage_range
-                    if c_rate:
-                        cell_metadata['c_rate'] = c_rate
-                    if pressure:
-                        cell_metadata['pressure'] = pressure
-                    
-                    # Process data
-                    df_normalized = ec.load_data(
-                        temp_file,
-                        total_mass=cathode_mass,
-                        am_percentage=active_material_percentage,
-                        collector_mass=collector_mass
-                    )
-                    
-                    # Store in session state
-                    st.session_state.processed_data = {
-                        'df': df_normalized,
-                        'metadata': cell_metadata,
-                        'filename': uploaded_file.name
-                    }
-                    st.session_state.has_data = True
-                    
-                    # Clean up
-                    if temp_file.exists():
-                        os.unlink(temp_file)
-                    
-                    st.success("Data processed successfully!")
-                    
-                    # Add to multi-cell collection if needed
-                    if st.button("Add to Multi-Cell Comparison"):
-                        cell_key = f"{cell_id}_{datetime.now().strftime('%H%M%S')}"
-                        st.session_state.cells[cell_key] = {
-                            'df': df_normalized.copy(),
-                            'metadata': cell_metadata.copy(),
-                            'filename': uploaded_file.name,
-                            'display_name': cell_id
+                # Submit button - must be inside the form
+                submitted = st.form_submit_button(label="Process Data")
+                if submitted:
+                    st.session_state.form_submitted = True
+                    # Validate required fields
+                    if not cell_id or not cathode_type or not anode_type:
+                        st.error("Please fill in all required fields: Cell ID, Cathode Type, and Anode Type")
+                        st.session_state.form_submitted = False
+            
+            # Handle the form submission - this runs after the form based on the session state
+            if st.session_state.form_submitted:
+                st.session_state.form_submitted = False
+                
+                with st.spinner("Processing data..."):
+                    try:
+                        # Save uploaded file to temp location
+                        temp_file = Path(tempfile.gettempdir()) / uploaded_file.name
+                        with open(temp_file, "wb") as f:
+                            f.write(uploaded_file.getvalue())
+                        
+                        # Create cell metadata dictionary
+                        cell_metadata = {
+                            'cell_id': cell_id,
+                            'cathode_type': cathode_type,
+                            'anode_type': anode_type,
+                            'cathode_mass': f"{cathode_mass} mg",
+                            'collector_mass': f"{collector_mass} mg",
+                            'active_material_percentage': active_material_percentage,
+                            'date': date.strftime("%Y-%m-%d")
                         }
-                        st.session_state.selected_cells.append(cell_key)
-                        st.session_state.has_multiple_cells = len(st.session_state.cells) > 1
-                        st.success(f"Added {cell_id} to multi-cell comparison")
-                    
-                except Exception as e:
-                    st.error(f"Error processing file: {str(e)}")
+                        
+                        # Add optional metadata
+                        if cathode_composition:
+                            cell_metadata['cathode_composition'] = cathode_composition
+                        if cathode_mixing_method:
+                            cell_metadata['cathode_mixing_method'] = cathode_mixing_method
+                        if anode_composition:
+                            cell_metadata['anode_composition'] = anode_composition
+                        if anode_mass:
+                            cell_metadata['anode_mass'] = anode_mass
+                        if anode_mixing_method:
+                            cell_metadata['anode_mixing_method'] = anode_mixing_method
+                        if electrolyte:
+                            cell_metadata['electrolyte'] = electrolyte
+                        if electrolyte_quantity:
+                            cell_metadata['electrolyte_quantity'] = electrolyte_quantity
+                        if channel:
+                            cell_metadata['channel'] = channel
+                        if voltage_range:
+                            cell_metadata['voltage_range'] = voltage_range
+                        if c_rate:
+                            cell_metadata['c_rate'] = c_rate
+                        if pressure:
+                            cell_metadata['pressure'] = pressure
+                        
+                        # Process data
+                        df_normalized = ec.load_data(
+                            temp_file,
+                            total_mass=cathode_mass,
+                            am_percentage=active_material_percentage,
+                            collector_mass=collector_mass
+                        )
+                        
+                        # Store in session state
+                        st.session_state.processed_data = {
+                            'df': df_normalized,
+                            'metadata': cell_metadata,
+                            'filename': uploaded_file.name
+                        }
+                        st.session_state.has_data = True
+                        
+                        # Clean up
+                        if temp_file.exists():
+                            os.unlink(temp_file)
+                        
+                        st.success("Data processed successfully!")
+                        
+                    except Exception as e:
+                        st.error(f"Error processing file: {str(e)}")
 
 # Multi-Cell Comparison Management
 if len(st.session_state.cells) > 0:
+    st.sidebar.markdown("---")
     st.sidebar.header("📊 Multi-Cell Comparison")
     
-    # Display available cells
+    # Display cell count and statistics
+    cell_count = len(st.session_state.cells)
+    selected_count = len(st.session_state.selected_cells)
+    
+    st.sidebar.info(f"**{cell_count}** cells available for comparison\n\n**{selected_count}** currently selected")
+    
+    # Display available cells with improved formatting
     st.sidebar.subheader("Available Cells")
     
+    # Use a container with a border for better visibility
+    cell_list_container = st.sidebar.container()
+    
+    # Add CSS for better visual separation
+    cell_list_container.markdown("""
+    <style>
+    .cell-item {
+        padding: 5px;
+        margin-bottom: 5px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     for cell_key, cell_data in st.session_state.cells.items():
-        col1, col2 = st.sidebar.columns([3, 1])
-        with col1:
-            # Checkbox to select/deselect for comparison
-            is_selected = st.checkbox(
-                f"{cell_data['display_name']} ({cell_data['metadata']['cathode_type']})", 
-                value=cell_key in st.session_state.selected_cells,
-                key=f"select_{cell_key}"
-            )
+        # Create a container for each cell for better styling
+        with cell_list_container:
+            st.markdown(f"<div class='cell-item'>", unsafe_allow_html=True)
             
-            # Update selected cells list
-            if is_selected and cell_key not in st.session_state.selected_cells:
-                st.session_state.selected_cells.append(cell_key)
-            elif not is_selected and cell_key in st.session_state.selected_cells:
-                st.session_state.selected_cells.remove(cell_key)
-        
-        with col2:
-            # Button to remove cell from comparison
-            if st.button("🗑️", key=f"remove_{cell_key}"):
-                # Remove from cells dictionary
-                del st.session_state.cells[cell_key]
-                # Remove from selected cells if present
-                if cell_key in st.session_state.selected_cells:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                # Checkbox to select/deselect for comparison
+                is_selected = st.checkbox(
+                    f"{cell_data['display_name']} ({cell_data['metadata']['cathode_type']})", 
+                    value=cell_key in st.session_state.selected_cells,
+                    key=f"select_{cell_key}"
+                )
+                
+                # Update selected cells list
+                if is_selected and cell_key not in st.session_state.selected_cells:
+                    st.session_state.selected_cells.append(cell_key)
+                elif not is_selected and cell_key in st.session_state.selected_cells:
                     st.session_state.selected_cells.remove(cell_key)
-                st.rerun()  # Refresh the UI
+            
+            with col2:
+                # Button to remove cell from comparison
+                if st.button("🗑️", key=f"remove_{cell_key}"):
+                    # Remove from cells dictionary
+                    del st.session_state.cells[cell_key]
+                    # Remove from selected cells if present
+                    if cell_key in st.session_state.selected_cells:
+                        st.session_state.selected_cells.remove(cell_key)
+                    st.rerun()  # Refresh the UI
+            
+            # Add metadata highlights
+            st.caption(f"File: {cell_data['filename']}")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Button to view multi-cell comparison
+    if len(st.session_state.selected_cells) >= 2:
+        st.sidebar.success("✅ Ready for multi-cell comparison!")
+    else:
+        st.sidebar.warning("Select at least 2 cells to compare")
     
     # Update multi-cell state flag
     st.session_state.has_multiple_cells = len(st.session_state.cells) > 1 and len(st.session_state.selected_cells) > 1
@@ -503,142 +560,203 @@ if st.session_state.has_data:
 
 # Add Multi-Cell Comparison tabs if multiple cells are available
 elif st.session_state.has_multiple_cells:
-    st.header("Multi-Cell Comparison")
+    st.header("🔬 Multi-Cell Comparison")
+    
+    # Show selected cells information
+    selected_cells_info = ", ".join([st.session_state.cells[key]['display_name'] for key in st.session_state.selected_cells])
+    st.markdown(f"**Comparing:** {selected_cells_info}")
     
     # Tabs for different comparison plot types
-    mc_tab1, mc_tab2 = st.tabs(["Multi-Cell Capacity", "Multi-Cell Charge-Discharge"])
+    mc_tab1, mc_tab2, mc_tab3 = st.tabs([
+        "Capacity vs Cycle", 
+        "Discharge Curves", 
+        "Cell Information"
+    ])
     
     # Tab 1: Multi-Cell Capacity
     with mc_tab1:
         st.subheader("Capacity vs Cycle Comparison")
         
         if st.button("Generate Comparison Plot", key="btn_mc_capacity"):
-            if len(st.session_state.selected_cells) < 2:
-                st.warning("Please select at least two cells for comparison")
-            else:
-                with st.spinner("Generating multi-cell capacity comparison..."):
-                    fig = go.Figure()
+            with st.spinner("Generating multi-cell capacity comparison..."):
+                fig = go.Figure()
+                
+                # Plot each selected cell
+                for cell_key in st.session_state.selected_cells:
+                    cell_data = st.session_state.cells[cell_key]
                     
-                    # Plot each selected cell
-                    for cell_key in st.session_state.selected_cells:
-                        cell_data = st.session_state.cells[cell_key]
-                        
-                        # Get discharge capacity data for each cycle
-                        df = cell_data['df']
-                        discharge_df = df[df['Step_Type'] == 'Discharge']
-                        capacity_data = discharge_df.groupby('Cycle_Index')['Capacity'].max().reset_index()
-                        
-                        # Add trace for this cell
-                        fig.add_trace(go.Scatter(
-                            x=capacity_data['Cycle_Index'],
-                            y=capacity_data['Capacity'],
-                            mode='lines+markers',
-                            name=f"{cell_data['display_name']} - {cell_data['metadata']['cathode_type']}"
-                        ))
+                    # Get discharge capacity data for each cycle
+                    df = cell_data['df']
+                    discharge_df = df[df['Step_Type'] == 'Discharge']
+                    capacity_data = discharge_df.groupby('Cycle_Index')['Capacity'].max().reset_index()
                     
-                    # Update layout
-                    fig.update_layout(
-                        title="Capacity vs Cycle Comparison",
-                        xaxis_title="Cycle Number",
-                        yaxis_title="Capacity (mAh/g)",
-                        legend_title="Cells"
-                    )
+                    # Add trace for this cell
+                    fig.add_trace(go.Scatter(
+                        x=capacity_data['Cycle_Index'],
+                        y=capacity_data['Capacity'],
+                        mode='lines+markers',
+                        name=f"{cell_data['display_name']} ({cell_data['metadata']['cathode_type']})"
+                    ))
+                
+                # Update layout
+                fig.update_layout(
+                    title="Capacity vs Cycle Comparison",
+                    xaxis_title="Cycle Number",
+                    yaxis_title="Capacity (mAh/g)",
+                    legend_title="Cells"
+                )
+                
+                # Enhance plot
+                fig = enhance_plot(fig)
+                
+                # Display plot
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Create download option for comparison data
+                comparison_data = pd.DataFrame()
+                
+                for cell_key in st.session_state.selected_cells:
+                    cell_data = st.session_state.cells[cell_key]
+                    df = cell_data['df']
+                    discharge_df = df[df['Step_Type'] == 'Discharge']
+                    capacity_series = discharge_df.groupby('Cycle_Index')['Capacity'].max()
                     
-                    # Enhance plot
-                    fig = enhance_plot(fig)
-                    
-                    # Display plot
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Create download option for comparison data
-                    comparison_data = pd.DataFrame()
-                    
-                    for cell_key in st.session_state.selected_cells:
-                        cell_data = st.session_state.cells[cell_key]
-                        df = cell_data['df']
-                        discharge_df = df[df['Step_Type'] == 'Discharge']
-                        capacity_series = discharge_df.groupby('Cycle_Index')['Capacity'].max()
-                        
-                        # Add to comparison dataframe
-                        comparison_data[f"{cell_data['display_name']}"] = pd.Series(capacity_series)
-                    
-                    # Reset index to make Cycle_Index a column
-                    comparison_data = comparison_data.reset_index().rename(columns={'index': 'Cycle_Index'})
-                    
-                    st.download_button(
-                        label="Download Comparison Data as CSV",
-                        data=comparison_data.to_csv(index=False).encode('utf-8'),
-                        file_name="multi_cell_capacity_comparison.csv",
-                        mime='text/csv',
-                    )
+                    # Add to comparison dataframe
+                    comparison_data[f"{cell_data['display_name']}"] = pd.Series(capacity_series)
+                
+                # Reset index to make Cycle_Index a column
+                comparison_data = comparison_data.reset_index().rename(columns={'index': 'Cycle_Index'})
+                
+                st.download_button(
+                    label="Download Comparison Data as CSV",
+                    data=comparison_data.to_csv(index=False).encode('utf-8'),
+                    file_name="multi_cell_capacity_comparison.csv",
+                    mime='text/csv',
+                )
     
     # Tab 2: Multi-Cell Charge-Discharge
     with mc_tab2:
-        st.subheader("Charge-Discharge Comparison")
+        st.subheader("Discharge Curves Comparison")
         
-        # Input for cycle selection
-        compare_cycle = st.number_input("Cycle to compare across cells", min_value=1, value=1)
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            # Input for cycle selection
+            compare_cycle = st.number_input("Cycle to compare:", min_value=1, value=1)
+            highlight_cell = st.selectbox(
+                "Highlight cell:", 
+                ["None"] + [st.session_state.cells[key]['display_name'] for key in st.session_state.selected_cells]
+            )
         
         if st.button("Generate Comparison Plot", key="btn_mc_cd"):
-            if len(st.session_state.selected_cells) < 2:
-                st.warning("Please select at least two cells for comparison")
-            else:
-                with st.spinner("Generating multi-cell charge-discharge comparison..."):
-                    fig = go.Figure()
+            with st.spinner("Generating multi-cell discharge comparison..."):
+                fig = go.Figure()
+                
+                # Plot discharge curve for selected cycle for each cell
+                for cell_key in st.session_state.selected_cells:
+                    cell_data = st.session_state.cells[cell_key]
+                    cell_name = cell_data['display_name']
                     
-                    # Plot discharge curve for selected cycle for each cell
-                    for cell_key in st.session_state.selected_cells:
-                        cell_data = st.session_state.cells[cell_key]
-                        
-                        # Get data for the selected cycle
-                        df = cell_data['df']
-                        cycle_df = df[df['Cycle_Index'] == compare_cycle]
-                        discharge_df = cycle_df[cycle_df['Step_Type'] == 'Discharge']
-                        
-                        # Sort by voltage (descending for discharge)
-                        discharge_df = discharge_df.sort_values('Voltage', ascending=False)
-                        
-                        # Add trace for this cell
-                        fig.add_trace(go.Scatter(
-                            x=discharge_df['Capacity'],
-                            y=discharge_df['Voltage'],
-                            mode='lines',
-                            name=f"{cell_data['display_name']} - {cell_data['metadata']['cathode_type']}"
-                        ))
+                    # Get data for the selected cycle
+                    df = cell_data['df']
+                    cycle_df = df[df['Cycle_Index'] == compare_cycle]
+                    discharge_df = cycle_df[cycle_df['Step_Type'] == 'Discharge']
                     
-                    # Update layout
-                    fig.update_layout(
-                        title=f"Discharge Curve Comparison - Cycle {compare_cycle}",
-                        xaxis_title="Capacity (mAh/g)",
-                        yaxis_title="Voltage (V)",
-                        legend_title="Cells"
-                    )
+                    # Sort by voltage (descending for discharge)
+                    discharge_df = discharge_df.sort_values('Voltage', ascending=False)
                     
-                    # Enhance plot
-                    fig = enhance_plot(fig)
+                    # Set line width based on highlight selection
+                    line_width = 3 if highlight_cell == cell_name else 1.5
+                    opacity = 1.0 if highlight_cell == "None" or highlight_cell == cell_name else 0.7
                     
-                    # Display plot
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Create download option for comparison data
-                    st.write("Download individual cell data from the single-cell view")
+                    # Add trace for this cell
+                    fig.add_trace(go.Scatter(
+                        x=discharge_df['Capacity'],
+                        y=discharge_df['Voltage'],
+                        mode='lines',
+                        line=dict(width=line_width),
+                        opacity=opacity,
+                        name=f"{cell_name} ({cell_data['metadata']['cathode_type']})"
+                    ))
+                
+                # Update layout
+                fig.update_layout(
+                    title=f"Discharge Curve Comparison - Cycle {compare_cycle}",
+                    xaxis_title="Capacity (mAh/g)",
+                    yaxis_title="Voltage (V)",
+                    legend_title="Cells"
+                )
+                
+                # Enhance plot
+                fig = enhance_plot(fig)
+                
+                # Display plot
+                st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 3: Cell Information
+    with mc_tab3:
+        st.subheader("Cell Information Comparison")
+        
+        # Create a comparison table of key metadata
+        comparison_table = []
+        
+        # Define metadata fields to display
+        metadata_fields = [
+            "cell_id", "cathode_type", "anode_type", 
+            "cathode_mass", "active_material_percentage",
+            "date", "electrolyte", "c_rate"
+        ]
+        
+        # Field display names
+        field_names = {
+            "cell_id": "Cell ID",
+            "cathode_type": "Cathode Type",
+            "anode_type": "Anode Type",
+            "cathode_mass": "Cathode Mass",
+            "active_material_percentage": "Active Material %",
+            "date": "Test Date",
+            "electrolyte": "Electrolyte",
+            "c_rate": "C-Rate"
+        }
+        
+        # Build table rows
+        for field in metadata_fields:
+            row = {"Field": field_names.get(field, field)}
+            
+            for cell_key in st.session_state.selected_cells:
+                cell_data = st.session_state.cells[cell_key]
+                cell_name = cell_data['display_name']
+                metadata = cell_data['metadata']
+                
+                # Add value if exists
+                row[cell_name] = metadata.get(field, "N/A")
+            
+            comparison_table.append(row)
+        
+        # Convert to DataFrame for display
+        comparison_df = pd.DataFrame(comparison_table)
+        st.dataframe(comparison_df, use_container_width=True)
 
 # Welcome info when no data is loaded
 else:
     st.markdown("""
     ## Instructions
     1. Upload your Excel file with electrochemical test data using the sidebar
-    2. Fill in the required metadata fields
+    2. Fill in the required metadata fields:
+       - **Cell ID** (mandatory)
+       - **Cathode Type** (mandatory)
+       - **Anode Type** (mandatory)
+       - Other fields are optional but recommended for comprehensive analysis
     3. Click "Process Data" to analyze your file
-    4. Choose from different visualization options:
-        - Charge-Discharge Curves
-        - Capacity vs Cycle
-        - State of Health
-        - Coulombic Efficiency
-        - Voltage vs Time
-        - Differential Capacity (dQ/dV)
-        - Combined Performance
-    5. Download the raw data or specific plot data in CSV format
+    4. Choose visualization options or add to multi-cell comparison:
+        - Use the single-cell visualization tabs to view detailed analysis
+        - Click "Add to Comparison" to include in multi-cell analysis
+        - Click "Load New Cell" to process another cell
+    5. Compare multiple cells:
+        - Process and add multiple cells to comparison
+        - Select cells in the sidebar for comparison
+        - Use the multi-cell comparison tabs to view comparative analysis
+    6. Download data in CSV format for further analysis
     
     This application analyzes electrochemical test data from coin cells to evaluate battery performance.
     """)
