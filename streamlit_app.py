@@ -8,6 +8,7 @@ import os
 from datetime import datetime
 import logging
 import base64
+import plotly.graph_objects as go
 
 # Configure page
 st.set_page_config(
@@ -37,6 +38,12 @@ if 'processed_data' not in st.session_state:
     st.session_state.processed_data = None
     st.session_state.has_data = False
     st.session_state.form_submitted = False
+    
+# Initialize multi-cell session state
+if 'cells' not in st.session_state:
+    st.session_state.cells = {}  # Dictionary to store multiple cells with their metadata
+    st.session_state.selected_cells = []  # List to track selected cells for comparison
+    st.session_state.has_multiple_cells = False
 
 # Function to enhance plot appearance
 def enhance_plot(fig):
@@ -217,8 +224,57 @@ with st.sidebar:
                     
                     st.success("Data processed successfully!")
                     
+                    # Add to multi-cell collection if needed
+                    if st.button("Add to Multi-Cell Comparison"):
+                        cell_key = f"{cell_id}_{datetime.now().strftime('%H%M%S')}"
+                        st.session_state.cells[cell_key] = {
+                            'df': df_normalized.copy(),
+                            'metadata': cell_metadata.copy(),
+                            'filename': uploaded_file.name,
+                            'display_name': cell_id
+                        }
+                        st.session_state.selected_cells.append(cell_key)
+                        st.session_state.has_multiple_cells = len(st.session_state.cells) > 1
+                        st.success(f"Added {cell_id} to multi-cell comparison")
+                    
                 except Exception as e:
                     st.error(f"Error processing file: {str(e)}")
+
+# Multi-Cell Comparison Management
+if len(st.session_state.cells) > 0:
+    st.sidebar.header("📊 Multi-Cell Comparison")
+    
+    # Display available cells
+    st.sidebar.subheader("Available Cells")
+    
+    for cell_key, cell_data in st.session_state.cells.items():
+        col1, col2 = st.sidebar.columns([3, 1])
+        with col1:
+            # Checkbox to select/deselect for comparison
+            is_selected = st.checkbox(
+                f"{cell_data['display_name']} ({cell_data['metadata']['cathode_type']})", 
+                value=cell_key in st.session_state.selected_cells,
+                key=f"select_{cell_key}"
+            )
+            
+            # Update selected cells list
+            if is_selected and cell_key not in st.session_state.selected_cells:
+                st.session_state.selected_cells.append(cell_key)
+            elif not is_selected and cell_key in st.session_state.selected_cells:
+                st.session_state.selected_cells.remove(cell_key)
+        
+        with col2:
+            # Button to remove cell from comparison
+            if st.button("🗑️", key=f"remove_{cell_key}"):
+                # Remove from cells dictionary
+                del st.session_state.cells[cell_key]
+                # Remove from selected cells if present
+                if cell_key in st.session_state.selected_cells:
+                    st.session_state.selected_cells.remove(cell_key)
+                st.rerun()  # Refresh the UI
+    
+    # Update multi-cell state flag
+    st.session_state.has_multiple_cells = len(st.session_state.cells) > 1 and len(st.session_state.selected_cells) > 1
 
 # Main content area - show visualization options if data is processed
 if st.session_state.has_data:
@@ -445,8 +501,130 @@ if st.session_state.has_data:
         mime='text/csv',
     )
 
+# Add Multi-Cell Comparison tabs if multiple cells are available
+elif st.session_state.has_multiple_cells:
+    st.header("Multi-Cell Comparison")
+    
+    # Tabs for different comparison plot types
+    mc_tab1, mc_tab2 = st.tabs(["Multi-Cell Capacity", "Multi-Cell Charge-Discharge"])
+    
+    # Tab 1: Multi-Cell Capacity
+    with mc_tab1:
+        st.subheader("Capacity vs Cycle Comparison")
+        
+        if st.button("Generate Comparison Plot", key="btn_mc_capacity"):
+            if len(st.session_state.selected_cells) < 2:
+                st.warning("Please select at least two cells for comparison")
+            else:
+                with st.spinner("Generating multi-cell capacity comparison..."):
+                    fig = go.Figure()
+                    
+                    # Plot each selected cell
+                    for cell_key in st.session_state.selected_cells:
+                        cell_data = st.session_state.cells[cell_key]
+                        
+                        # Get discharge capacity data for each cycle
+                        df = cell_data['df']
+                        discharge_df = df[df['Step_Type'] == 'Discharge']
+                        capacity_data = discharge_df.groupby('Cycle_Index')['Capacity'].max().reset_index()
+                        
+                        # Add trace for this cell
+                        fig.add_trace(go.Scatter(
+                            x=capacity_data['Cycle_Index'],
+                            y=capacity_data['Capacity'],
+                            mode='lines+markers',
+                            name=f"{cell_data['display_name']} - {cell_data['metadata']['cathode_type']}"
+                        ))
+                    
+                    # Update layout
+                    fig.update_layout(
+                        title="Capacity vs Cycle Comparison",
+                        xaxis_title="Cycle Number",
+                        yaxis_title="Capacity (mAh/g)",
+                        legend_title="Cells"
+                    )
+                    
+                    # Enhance plot
+                    fig = enhance_plot(fig)
+                    
+                    # Display plot
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Create download option for comparison data
+                    comparison_data = pd.DataFrame()
+                    
+                    for cell_key in st.session_state.selected_cells:
+                        cell_data = st.session_state.cells[cell_key]
+                        df = cell_data['df']
+                        discharge_df = df[df['Step_Type'] == 'Discharge']
+                        capacity_series = discharge_df.groupby('Cycle_Index')['Capacity'].max()
+                        
+                        # Add to comparison dataframe
+                        comparison_data[f"{cell_data['display_name']}"] = pd.Series(capacity_series)
+                    
+                    # Reset index to make Cycle_Index a column
+                    comparison_data = comparison_data.reset_index().rename(columns={'index': 'Cycle_Index'})
+                    
+                    st.download_button(
+                        label="Download Comparison Data as CSV",
+                        data=comparison_data.to_csv(index=False).encode('utf-8'),
+                        file_name="multi_cell_capacity_comparison.csv",
+                        mime='text/csv',
+                    )
+    
+    # Tab 2: Multi-Cell Charge-Discharge
+    with mc_tab2:
+        st.subheader("Charge-Discharge Comparison")
+        
+        # Input for cycle selection
+        compare_cycle = st.number_input("Cycle to compare across cells", min_value=1, value=1)
+        
+        if st.button("Generate Comparison Plot", key="btn_mc_cd"):
+            if len(st.session_state.selected_cells) < 2:
+                st.warning("Please select at least two cells for comparison")
+            else:
+                with st.spinner("Generating multi-cell charge-discharge comparison..."):
+                    fig = go.Figure()
+                    
+                    # Plot discharge curve for selected cycle for each cell
+                    for cell_key in st.session_state.selected_cells:
+                        cell_data = st.session_state.cells[cell_key]
+                        
+                        # Get data for the selected cycle
+                        df = cell_data['df']
+                        cycle_df = df[df['Cycle_Index'] == compare_cycle]
+                        discharge_df = cycle_df[cycle_df['Step_Type'] == 'Discharge']
+                        
+                        # Sort by voltage (descending for discharge)
+                        discharge_df = discharge_df.sort_values('Voltage', ascending=False)
+                        
+                        # Add trace for this cell
+                        fig.add_trace(go.Scatter(
+                            x=discharge_df['Capacity'],
+                            y=discharge_df['Voltage'],
+                            mode='lines',
+                            name=f"{cell_data['display_name']} - {cell_data['metadata']['cathode_type']}"
+                        ))
+                    
+                    # Update layout
+                    fig.update_layout(
+                        title=f"Discharge Curve Comparison - Cycle {compare_cycle}",
+                        xaxis_title="Capacity (mAh/g)",
+                        yaxis_title="Voltage (V)",
+                        legend_title="Cells"
+                    )
+                    
+                    # Enhance plot
+                    fig = enhance_plot(fig)
+                    
+                    # Display plot
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Create download option for comparison data
+                    st.write("Download individual cell data from the single-cell view")
+
+# Welcome info when no data is loaded
 else:
-    # Welcome info when no data is loaded
     st.markdown("""
     ## Instructions
     1. Upload your Excel file with electrochemical test data using the sidebar
