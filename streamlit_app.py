@@ -116,6 +116,14 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
         
         # Plot the data with consistent colors for the same cycle
         legend_entries = []
+        cycle_colors = {}  # To track which cycles have been assigned colors
+        
+        # First pass: assign a unique color to each cycle number
+        for key in trace_info:
+            if isinstance(key, int):  # Key is a cycle number
+                cycle_colors[key] = plotly_colors[len(cycle_colors) % len(plotly_colors)]
+        
+        # Second pass: plot with assigned colors
         for i, trace in enumerate(fig.data):
             x = trace.x
             y = trace.y
@@ -125,10 +133,13 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
                 if any(idx == i for idx, _ in info['names']):
                     # Get or set color for this group
                     if info['color'] is None:
-                        if isinstance(key, int) and key < len(plotly_colors):
-                            info['color'] = plotly_colors[key % len(plotly_colors)]
+                        if isinstance(key, int) and key in cycle_colors:
+                            # Use pre-assigned color for this cycle
+                            info['color'] = cycle_colors[key]
                         else:
-                            info['color'] = plotly_colors[i % len(plotly_colors)]
+                            # For non-cycle traces, use next available color
+                            info['color'] = plotly_colors[len(cycle_colors) % len(plotly_colors)]
+                            cycle_colors[f"other_{len(cycle_colors)}"] = info['color']
                     
                     # Plot with the assigned color
                     color = info['color']
