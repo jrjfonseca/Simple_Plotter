@@ -59,7 +59,7 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         is_cycle_plot: Whether this is a cycle-related plot (for integer x-ticks)
         
     Returns:
-        BytesIO object containing the PNG image
+        tuple: (matplotlib figure, BytesIO buffer) containing the figure and PNG image
     """
     # Use context manager only if SciencePlots is available
     if SCIENCEPLOTS_AVAILABLE:
@@ -243,9 +243,10 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=300, bbox_inches='tight')
         buf.seek(0)
-        plt.close(mpl_fig)
         
-        return buf
+        # Note: we don't close the figure here so it can be displayed
+        
+        return mpl_fig, buf
 
 # Set default Plotly template for better appearance
 pio.templates.default = "plotly_white"
@@ -800,7 +801,7 @@ if st.session_state.has_data:
                         if y_min is not None and y_max is not None:
                             y_range = [y_min, y_max]
                         
-                        buf = generate_publication_plot(
+                        mpl_fig, buf = generate_publication_plot(
                             fig, 
                             title=custom_title,
                             xlabel="Capacity (mAh/g)",
@@ -876,7 +877,7 @@ if st.session_state.has_data:
                             y_range = [y_min, y_max]
                         
                         # Generate publication quality plot
-                        buf = generate_publication_plot(
+                        mpl_fig, buf = generate_publication_plot(
                             fig, 
                             title=custom_title,
                             xlabel="Cycle Number",
@@ -955,7 +956,7 @@ if st.session_state.has_data:
                         if y_min is not None and y_max is not None:
                             y_range = [y_min, y_max]
                         
-                        buf = generate_publication_plot(
+                        mpl_fig, buf = generate_publication_plot(
                             fig, 
                             title=custom_title,
                             xlabel="Cycle Number",
@@ -1034,7 +1035,7 @@ if st.session_state.has_data:
                         if y_min is not None and y_max is not None:
                             y_range = [y_min, y_max]
                         
-                        buf = generate_publication_plot(
+                        mpl_fig, buf = generate_publication_plot(
                             fig, 
                             title=custom_title,
                             xlabel="Cycle Number",
@@ -1110,7 +1111,7 @@ if st.session_state.has_data:
                         if y_min is not None and y_max is not None:
                             y_range = [y_min, y_max]
                         
-                        buf = generate_publication_plot(
+                        mpl_fig, buf = generate_publication_plot(
                             fig, 
                             title=custom_title,
                             xlabel="Time (h)",
@@ -1179,7 +1180,7 @@ if st.session_state.has_data:
                     if y_min is not None and y_max is not None:
                         y_range = [y_min, y_max]
                     
-                    buf = generate_publication_plot(
+                    mpl_fig, buf = generate_publication_plot(
                         fig, 
                         title=custom_title,
                         xlabel="Voltage (V)",
@@ -1248,7 +1249,7 @@ if st.session_state.has_data:
                     if y_min is not None and y_max is not None:
                         y_range = [y_min, y_max]
                     
-                    buf = generate_publication_plot(
+                    mpl_fig, buf = generate_publication_plot(
                         fig, 
                         title=custom_title,
                         xlabel="Cycle Number",
@@ -1383,7 +1384,7 @@ if st.session_state.has_multiple_cells:
                             y_range = [y_min, y_max]
                         
                         # Generate publication quality plot
-                        buf = generate_publication_plot(
+                        mpl_fig, buf = generate_publication_plot(
                             fig, 
                             title=custom_title,
                             xlabel="Cycle Number",
@@ -1525,7 +1526,7 @@ if st.session_state.has_multiple_cells:
                         if y_min is not None and y_max is not None:
                             y_range = [y_min, y_max]
                         
-                        buf = generate_publication_plot(
+                        mpl_fig, buf = generate_publication_plot(
                             fig, 
                             title=custom_title,
                             xlabel="Capacity (mAh/g)",
