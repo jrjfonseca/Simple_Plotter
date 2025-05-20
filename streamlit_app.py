@@ -771,50 +771,54 @@ if st.session_state.has_data:
                 # Enhance plot
                 fig = enhance_plot(fig)
                 
-                # Display plot
-                st.plotly_chart(fig, use_container_width=True)
+                # Handle publication quality option
+                if pub_quality:
+                    # Build custom title or use default
+                    custom_title = pub_title if pub_title else f"Charge-Discharge Curves - {st.session_state.processed_data['metadata']['cell_id']}"
+                    
+                    # Build axis ranges if provided
+                    x_range = None
+                    if x_min is not None and x_max is not None:
+                        x_range = [x_min, x_max]
+                    
+                    y_range = None
+                    if y_min is not None and y_max is not None:
+                        y_range = [y_min, y_max]
+                    
+                    # Generate publication quality plot
+                    mpl_fig, buf = generate_publication_plot(
+                        fig, 
+                        title=custom_title,
+                        xlabel="Capacity (mAh/g)",
+                        ylabel="Voltage (V)",
+                        x_range=x_range,
+                        y_range=y_range
+                    )
+                    
+                    # Display the matplotlib figure directly in Streamlit
+                    st.pyplot(mpl_fig)
+                    plt.close(mpl_fig)  # Close the figure to free memory
+                    
+                    # Add download button for the publication quality figure
+                    st.download_button(
+                        label="Download Publication Quality PNG",
+                        data=buf,
+                        file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_charge_discharge_pub.png",
+                        mime="image/png",
+                    )
+                else:
+                    # Display the regular plotly chart if not using publication quality
+                    st.plotly_chart(fig, use_container_width=True)
                 
                 # Download options
                 csv = st.session_state.processed_data['df'][st.session_state.processed_data['df']['Step_Type'] == 'Discharge'][['Cycle_Index', 'Voltage', 'Capacity']]
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.download_button(
-                        label="Download Data as CSV",
-                        data=csv.to_csv(index=False).encode('utf-8'),
-                        file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_charge_discharge_data.csv",
-                        mime='text/csv',
-                    )
-                
-                # Add publication quality plot download if selected
-                if pub_quality:
-                    with col2:
-                        # Build custom title or use default
-                        custom_title = pub_title if pub_title else f"Charge-Discharge Curves - {st.session_state.processed_data['metadata']['cell_id']}"
-                        
-                        # Build axis ranges if provided
-                        x_range = None
-                        if x_min is not None and x_max is not None:
-                            x_range = [x_min, x_max]
-                        
-                        y_range = None
-                        if y_min is not None and y_max is not None:
-                            y_range = [y_min, y_max]
-                        
-                        mpl_fig, buf = generate_publication_plot(
-                            fig, 
-                            title=custom_title,
-                            xlabel="Capacity (mAh/g)",
-                            ylabel="Voltage (V)",
-                            x_range=x_range,
-                            y_range=y_range
-                        )
-                        st.download_button(
-                            label="Download Publication Quality PNG",
-                            data=buf,
-                            file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_charge_discharge_pub.png",
-                            mime="image/png",
-                        )
+                st.download_button(
+                    label="Download Data as CSV",
+                    data=csv.to_csv(index=False).encode('utf-8'),
+                    file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_charge_discharge_data.csv",
+                    mime='text/csv',
+                )
     
     # Tab 2: Capacity vs Cycle
     with tab2:
@@ -846,52 +850,55 @@ if st.session_state.has_data:
                 # Enhance plot
                 fig = enhance_plot(fig)
                 
-                # Display plot
-                st.plotly_chart(fig, use_container_width=True)
+                # Handle publication quality option
+                if pub_quality:
+                    # Build custom title or use default
+                    custom_title = pub_title if pub_title else f"Capacity vs Cycle - {st.session_state.processed_data['metadata']['cell_id']}"
+                    
+                    # Build axis ranges if provided
+                    x_range = None
+                    if x_min is not None and x_max is not None:
+                        x_range = [x_min, x_max]
+                    
+                    y_range = None
+                    if y_min is not None and y_max is not None:
+                        y_range = [y_min, y_max]
+                    
+                    # Generate publication quality plot
+                    mpl_fig, buf = generate_publication_plot(
+                        fig, 
+                        title=custom_title,
+                        xlabel="Cycle Number",
+                        ylabel="Capacity (mAh/g)",
+                        x_range=x_range,
+                        y_range=y_range,
+                        is_cycle_plot=True
+                    )
+                    
+                    # Display the matplotlib figure directly in Streamlit
+                    st.pyplot(mpl_fig)
+                    plt.close(mpl_fig)  # Close the figure to free memory
+                    
+                    # Add download button for the publication quality figure
+                    st.download_button(
+                        label="Download Publication Quality PNG",
+                        data=buf,
+                        file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_capacity_pub.png",
+                        mime="image/png",
+                    )
+                else:
+                    # Display the regular plotly chart if not using publication quality
+                    st.plotly_chart(fig, use_container_width=True)
                 
                 # Download options
                 capacity_data = st.session_state.processed_data['df'][st.session_state.processed_data['df']['Step_Type'] == 'Discharge'].groupby('Cycle_Index')['Capacity'].max().reset_index()
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.download_button(
-                        label="Download Data as CSV",
-                        data=capacity_data.to_csv(index=False).encode('utf-8'),
-                        file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_capacity_data.csv",
-                        mime='text/csv',
-                    )
-                
-                # Add publication quality plot download if selected
-                if pub_quality:
-                    with col2:
-                        # Build custom title or use default
-                        custom_title = pub_title if pub_title else f"Capacity vs Cycle - {st.session_state.processed_data['metadata']['cell_id']}"
-                        
-                        # Build axis ranges if provided
-                        x_range = None
-                        if x_min is not None and x_max is not None:
-                            x_range = [x_min, x_max]
-                        
-                        y_range = None
-                        if y_min is not None and y_max is not None:
-                            y_range = [y_min, y_max]
-                        
-                        # Generate publication quality plot
-                        mpl_fig, buf = generate_publication_plot(
-                            fig, 
-                            title=custom_title,
-                            xlabel="Cycle Number",
-                            ylabel="Capacity (mAh/g)",
-                            x_range=x_range,
-                            y_range=y_range,
-                            is_cycle_plot=True
-                        )
-                        st.download_button(
-                            label="Download Publication Quality PNG",
-                            data=buf,
-                            file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_capacity_pub.png",
-                            mime="image/png",
-                        )
+                st.download_button(
+                    label="Download Data as CSV",
+                    data=capacity_data.to_csv(index=False).encode('utf-8'),
+                    file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_capacity_data.csv",
+                    mime='text/csv',
+                )
     
     # Tab 3: State of Health
     with tab3:
@@ -923,8 +930,45 @@ if st.session_state.has_data:
                 # Enhance plot
                 fig = enhance_plot(fig)
                 
-                # Display plot
-                st.plotly_chart(fig, use_container_width=True)
+                # Handle publication quality option
+                if pub_quality:
+                    # Build custom title or use default
+                    custom_title = pub_title if pub_title else f"State of Health - {st.session_state.processed_data['metadata']['cell_id']}"
+                    
+                    # Build axis ranges if provided
+                    x_range = None
+                    if x_min is not None and x_max is not None:
+                        x_range = [x_min, x_max]
+                    
+                    y_range = None
+                    if y_min is not None and y_max is not None:
+                        y_range = [y_min, y_max]
+                    
+                    # Generate publication quality plot
+                    mpl_fig, buf = generate_publication_plot(
+                        fig, 
+                        title=custom_title,
+                        xlabel="Cycle Number",
+                        ylabel="State of Health (%)",
+                        x_range=x_range,
+                        y_range=y_range,
+                        is_cycle_plot=True
+                    )
+                    
+                    # Display the matplotlib figure directly in Streamlit
+                    st.pyplot(mpl_fig)
+                    plt.close(mpl_fig)  # Close the figure to free memory
+                    
+                    # Add download button for the publication quality figure
+                    st.download_button(
+                        label="Download Publication Quality PNG",
+                        data=buf,
+                        file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_soh_pub.png",
+                        mime="image/png",
+                    )
+                else:
+                    # Display the regular plotly chart if not using publication quality
+                    st.plotly_chart(fig, use_container_width=True)
                 
                 # Download options
                 discharge_capacity = st.session_state.processed_data['df'][st.session_state.processed_data['df']['Step_Type'] == 'Discharge'].groupby('Cycle_Index')['Capacity'].max()
@@ -932,45 +976,12 @@ if st.session_state.has_data:
                 soh = (discharge_capacity / initial_capacity) * 100
                 soh_df = pd.DataFrame({'Cycle_Index': soh.index, 'State_of_Health': soh.values})
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.download_button(
-                        label="Download Data as CSV",
-                        data=soh_df.to_csv(index=False).encode('utf-8'),
-                        file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_soh_data.csv",
-                        mime='text/csv',
-                    )
-                
-                # Add publication quality plot download if selected
-                if pub_quality:
-                    with col2:
-                        # Build custom title or use default
-                        custom_title = pub_title if pub_title else f"State of Health - {st.session_state.processed_data['metadata']['cell_id']}"
-                        
-                        # Build axis ranges if provided
-                        x_range = None
-                        if x_min is not None and x_max is not None:
-                            x_range = [x_min, x_max]
-                        
-                        y_range = None
-                        if y_min is not None and y_max is not None:
-                            y_range = [y_min, y_max]
-                        
-                        mpl_fig, buf = generate_publication_plot(
-                            fig, 
-                            title=custom_title,
-                            xlabel="Cycle Number",
-                            ylabel="State of Health (%)",
-                            x_range=x_range,
-                            y_range=y_range,
-                            is_cycle_plot=True
-                        )
-                        st.download_button(
-                            label="Download Publication Quality PNG",
-                            data=buf,
-                            file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_soh_pub.png",
-                            mime="image/png",
-                        )
+                st.download_button(
+                    label="Download Data as CSV",
+                    data=soh_df.to_csv(index=False).encode('utf-8'),
+                    file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_soh_data.csv",
+                    mime='text/csv',
+                )
     
     # Tab 4: Coulombic Efficiency
     with tab4:
@@ -1002,8 +1013,45 @@ if st.session_state.has_data:
                 # Enhance plot
                 fig = enhance_plot(fig)
                 
-                # Display plot
-                st.plotly_chart(fig, use_container_width=True)
+                # Handle publication quality option
+                if pub_quality:
+                    # Build custom title or use default
+                    custom_title = pub_title if pub_title else f"Coulombic Efficiency - {st.session_state.processed_data['metadata']['cell_id']}"
+                    
+                    # Build axis ranges if provided
+                    x_range = None
+                    if x_min is not None and x_max is not None:
+                        x_range = [x_min, x_max]
+                    
+                    y_range = None
+                    if y_min is not None and y_max is not None:
+                        y_range = [y_min, y_max]
+                    
+                    # Generate publication quality plot
+                    mpl_fig, buf = generate_publication_plot(
+                        fig, 
+                        title=custom_title,
+                        xlabel="Cycle Number",
+                        ylabel="Coulombic Efficiency (%)",
+                        x_range=x_range,
+                        y_range=y_range,
+                        is_cycle_plot=True
+                    )
+                    
+                    # Display the matplotlib figure directly in Streamlit
+                    st.pyplot(mpl_fig)
+                    plt.close(mpl_fig)  # Close the figure to free memory
+                    
+                    # Add download button for the publication quality figure
+                    st.download_button(
+                        label="Download Publication Quality PNG",
+                        data=buf,
+                        file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_ce_pub.png",
+                        mime="image/png",
+                    )
+                else:
+                    # Display the regular plotly chart if not using publication quality
+                    st.plotly_chart(fig, use_container_width=True)
                 
                 # Download options
                 discharge_capacity = st.session_state.processed_data['df'][st.session_state.processed_data['df']['Step_Type'] == 'Discharge'].groupby('Cycle_Index')['Capacity'].max()
@@ -1011,45 +1059,12 @@ if st.session_state.has_data:
                 ce = (discharge_capacity / charge_capacity) * 100
                 ce_df = pd.DataFrame({'Cycle_Index': ce.index, 'Coulombic_Efficiency': ce.values})
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.download_button(
-                        label="Download Data as CSV",
-                        data=ce_df.to_csv(index=False).encode('utf-8'),
-                        file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_coulombic_efficiency_data.csv",
-                        mime='text/csv',
-                    )
-                
-                # Add publication quality plot download if selected
-                if pub_quality:
-                    with col2:
-                        # Build custom title or use default
-                        custom_title = pub_title if pub_title else f"Coulombic Efficiency - {st.session_state.processed_data['metadata']['cell_id']}"
-                        
-                        # Build axis ranges if provided
-                        x_range = None
-                        if x_min is not None and x_max is not None:
-                            x_range = [x_min, x_max]
-                        
-                        y_range = None
-                        if y_min is not None and y_max is not None:
-                            y_range = [y_min, y_max]
-                        
-                        mpl_fig, buf = generate_publication_plot(
-                            fig, 
-                            title=custom_title,
-                            xlabel="Cycle Number",
-                            ylabel="Coulombic Efficiency (%)",
-                            x_range=x_range,
-                            y_range=y_range,
-                            is_cycle_plot=True
-                        )
-                        st.download_button(
-                            label="Download Publication Quality PNG",
-                            data=buf,
-                            file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_ce_pub.png",
-                            mime="image/png",
-                        )
+                st.download_button(
+                    label="Download Data as CSV",
+                    data=ce_df.to_csv(index=False).encode('utf-8'),
+                    file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_coulombic_efficiency_data.csv",
+                    mime='text/csv',
+                )
     
     # Tab 5: Voltage vs Time
     with tab5:
@@ -1081,50 +1096,54 @@ if st.session_state.has_data:
                 # Enhance plot
                 fig = enhance_plot(fig)
                 
-                # Display plot
-                st.plotly_chart(fig, use_container_width=True)
+                # Handle publication quality option
+                if pub_quality:
+                    # Build custom title or use default
+                    custom_title = pub_title if pub_title else f"Voltage vs Time - {st.session_state.processed_data['metadata']['cell_id']}"
+                    
+                    # Build axis ranges if provided
+                    x_range = None
+                    if x_min is not None and x_max is not None:
+                        x_range = [x_min, x_max]
+                    
+                    y_range = None
+                    if y_min is not None and y_max is not None:
+                        y_range = [y_min, y_max]
+                    
+                    # Generate publication quality plot
+                    mpl_fig, buf = generate_publication_plot(
+                        fig, 
+                        title=custom_title,
+                        xlabel="Time (h)",
+                        ylabel="Voltage (V)",
+                        x_range=x_range,
+                        y_range=y_range
+                    )
+                    
+                    # Display the matplotlib figure directly in Streamlit
+                    st.pyplot(mpl_fig)
+                    plt.close(mpl_fig)  # Close the figure to free memory
+                    
+                    # Add download button for the publication quality figure
+                    st.download_button(
+                        label="Download Publication Quality PNG",
+                        data=buf,
+                        file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_voltage_time_pub.png",
+                        mime="image/png",
+                    )
+                else:
+                    # Display the regular plotly chart if not using publication quality
+                    st.plotly_chart(fig, use_container_width=True)
                 
                 # Download options
                 voltage_time = st.session_state.processed_data['df'][['Test_Time', 'Voltage']]
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.download_button(
-                        label="Download Data as CSV",
-                        data=voltage_time.to_csv(index=False).encode('utf-8'),
-                        file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_voltage_time_data.csv",
-                        mime='text/csv',
-                    )
-                
-                # Add publication quality plot download if selected
-                if pub_quality:
-                    with col2:
-                        # Build custom title or use default
-                        custom_title = pub_title if pub_title else f"Voltage vs Time - {st.session_state.processed_data['metadata']['cell_id']}"
-                        
-                        # Build axis ranges if provided
-                        x_range = None
-                        if x_min is not None and x_max is not None:
-                            x_range = [x_min, x_max]
-                        
-                        y_range = None
-                        if y_min is not None and y_max is not None:
-                            y_range = [y_min, y_max]
-                        
-                        mpl_fig, buf = generate_publication_plot(
-                            fig, 
-                            title=custom_title,
-                            xlabel="Time (h)",
-                            ylabel="Voltage (V)",
-                            x_range=x_range,
-                            y_range=y_range
-                        )
-                        st.download_button(
-                            label="Download Publication Quality PNG",
-                            data=buf,
-                            file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_voltage_time_pub.png",
-                            mime="image/png",
-                        )
+                st.download_button(
+                    label="Download Data as CSV",
+                    data=voltage_time.to_csv(index=False).encode('utf-8'),
+                    file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_voltage_time_data.csv",
+                    mime='text/csv',
+                )
     
     # Tab 6: Differential Capacity
     with tab6:
@@ -1163,10 +1182,7 @@ if st.session_state.has_data:
                 # Enhance plot
                 fig = enhance_plot(fig)
                 
-                # Display plot
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Add publication quality plot download if selected
+                # Handle publication quality option
                 if pub_quality:
                     # Build custom title or use default
                     custom_title = pub_title if pub_title else f"Differential Capacity - {st.session_state.processed_data['metadata']['cell_id']}"
@@ -1180,6 +1196,7 @@ if st.session_state.has_data:
                     if y_min is not None and y_max is not None:
                         y_range = [y_min, y_max]
                     
+                    # Generate publication quality plot
                     mpl_fig, buf = generate_publication_plot(
                         fig, 
                         title=custom_title,
@@ -1188,12 +1205,21 @@ if st.session_state.has_data:
                         x_range=x_range,
                         y_range=y_range
                     )
+                    
+                    # Display the matplotlib figure directly in Streamlit
+                    st.pyplot(mpl_fig)
+                    plt.close(mpl_fig)  # Close the figure to free memory
+                    
+                    # Add download button for the publication quality figure
                     st.download_button(
                         label="Download Publication Quality PNG",
                         data=buf,
                         file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_dqdv_pub.png",
                         mime="image/png",
                     )
+                else:
+                    # Display the regular plotly chart if not using publication quality
+                    st.plotly_chart(fig, use_container_width=True)
     
     # Tab 7: Combined Performance
     with tab7:
@@ -1232,10 +1258,7 @@ if st.session_state.has_data:
                 # Enhance plot
                 fig = enhance_plot(fig)
                 
-                # Display plot
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Add publication quality plot download if selected
+                # Handle publication quality option
                 if pub_quality:
                     # Build custom title or use default
                     custom_title = pub_title if pub_title else f"Combined Performance - {st.session_state.processed_data['metadata']['cell_id']}"
@@ -1249,6 +1272,7 @@ if st.session_state.has_data:
                     if y_min is not None and y_max is not None:
                         y_range = [y_min, y_max]
                     
+                    # Generate publication quality plot
                     mpl_fig, buf = generate_publication_plot(
                         fig, 
                         title=custom_title,
@@ -1258,12 +1282,21 @@ if st.session_state.has_data:
                         y_range=y_range,
                         is_cycle_plot=True
                     )
+                    
+                    # Display the matplotlib figure directly in Streamlit
+                    st.pyplot(mpl_fig)
+                    plt.close(mpl_fig)  # Close the figure to free memory
+                    
+                    # Add download button for the publication quality figure
                     st.download_button(
                         label="Download Publication Quality PNG",
                         data=buf,
                         file_name=f"{st.session_state.processed_data['metadata']['cell_id']}_combined_perf_pub.png",
                         mime="image/png",
                     )
+                else:
+                    # Display the regular plotly chart if not using publication quality
+                    st.plotly_chart(fig, use_container_width=True)
     
     # Option to download complete dataset
     st.subheader("Download Raw Data")
@@ -1341,8 +1374,45 @@ if st.session_state.has_multiple_cells:
                 # Enhance plot
                 fig = enhance_plot(fig)
                 
-                # Display plot
-                st.plotly_chart(fig, use_container_width=True)
+                # Handle publication quality option
+                if pub_quality:
+                    # Build custom title or use default
+                    custom_title = pub_title if pub_title else "Capacity vs Cycle Comparison"
+                    
+                    # Build axis ranges if provided
+                    x_range = None
+                    if x_min is not None and x_max is not None:
+                        x_range = [x_min, x_max]
+                    
+                    y_range = None
+                    if y_min is not None and y_max is not None:
+                        y_range = [y_min, y_max]
+                    
+                    # Generate publication quality plot
+                    mpl_fig, buf = generate_publication_plot(
+                        fig, 
+                        title=custom_title,
+                        xlabel="Cycle Number",
+                        ylabel="Capacity (mAh/g)",
+                        x_range=x_range,
+                        y_range=y_range,
+                        is_cycle_plot=True
+                    )
+                    
+                    # Display the matplotlib figure directly in Streamlit
+                    st.pyplot(mpl_fig)
+                    plt.close(mpl_fig)  # Close the figure to free memory
+                    
+                    # Add download button for the publication quality figure
+                    st.download_button(
+                        label="Download Publication Quality PNG",
+                        data=buf,
+                        file_name="multi_cell_capacity_comparison_pub.png",
+                        mime="image/png",
+                    )
+                else:
+                    # Display the regular plotly chart if not using publication quality
+                    st.plotly_chart(fig, use_container_width=True)
                 
                 # Create download option for comparison data
                 comparison_data = pd.DataFrame()
@@ -1359,45 +1429,12 @@ if st.session_state.has_multiple_cells:
                 # Reset index to make Cycle_Index a column
                 comparison_data = comparison_data.reset_index().rename(columns={'index': 'Cycle_Index'})
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.download_button(
-                        label="Download Comparison Data as CSV",
-                        data=comparison_data.to_csv(index=False).encode('utf-8'),
-                        file_name="multi_cell_capacity_comparison.csv",
-                        mime='text/csv',
-                    )
-                
-                # Add publication quality plot download if selected
-                if pub_quality:
-                    with col2:
-                        # Build custom title or use default
-                        custom_title = pub_title if pub_title else "Capacity vs Cycle Comparison"
-                        
-                        # Build axis ranges if provided
-                        x_range = None
-                        if x_min is not None and x_max is not None:
-                            x_range = [x_min, x_max]
-                        
-                        y_range = None
-                        if y_min is not None and y_max is not None:
-                            y_range = [y_min, y_max]
-                        
-                        # Generate publication quality plot
-                        mpl_fig, buf = generate_publication_plot(
-                            fig, 
-                            title=custom_title,
-                            xlabel="Cycle Number",
-                            ylabel="Capacity (mAh/g)",
-                            x_range=x_range,
-                            y_range=y_range
-                        )
-                        st.download_button(
-                            label="Download Publication Quality PNG",
-                            data=buf,
-                            file_name="multi_cell_capacity_comparison_pub.png",
-                            mime="image/png",
-                        )
+                st.download_button(
+                    label="Download Comparison Data as CSV",
+                    data=comparison_data.to_csv(index=False).encode('utf-8'),
+                    file_name="multi_cell_capacity_comparison.csv",
+                    mime='text/csv',
+                )
     
     # Tab 2: Multi-Cell Charge-Discharge
     with mc_tab2:
@@ -1466,8 +1503,44 @@ if st.session_state.has_multiple_cells:
                 # Enhance plot
                 fig = enhance_plot(fig)
                 
-                # Display plot
-                st.plotly_chart(fig, use_container_width=True)
+                # Handle publication quality option
+                if pub_quality:
+                    # Build custom title or use default
+                    custom_title = pub_title if pub_title else f"Discharge Curve Comparison - Cycle {compare_cycle}"
+                    
+                    # Build axis ranges if provided
+                    x_range = None
+                    if x_min is not None and x_max is not None:
+                        x_range = [x_min, x_max]
+                    
+                    y_range = None
+                    if y_min is not None and y_max is not None:
+                        y_range = [y_min, y_max]
+                    
+                    # Generate publication quality plot
+                    mpl_fig, buf = generate_publication_plot(
+                        fig, 
+                        title=custom_title,
+                        xlabel="Capacity (mAh/g)",
+                        ylabel="Voltage (V)",
+                        x_range=x_range,
+                        y_range=y_range
+                    )
+                    
+                    # Display the matplotlib figure directly in Streamlit
+                    st.pyplot(mpl_fig)
+                    plt.close(mpl_fig)  # Close the figure to free memory
+                    
+                    # Add download button for the publication quality figure
+                    st.download_button(
+                        label="Download Publication Quality PNG",
+                        data=buf,
+                        file_name=f"discharge_comparison_cycle_{compare_cycle}_pub.png",
+                        mime="image/png",
+                    )
+                else:
+                    # Display the regular plotly chart if not using publication quality
+                    st.plotly_chart(fig, use_container_width=True)
                 
                 # Create composite dataframe for download
                 all_discharge_data = pd.DataFrame()
@@ -1502,44 +1575,12 @@ if st.session_state.has_multiple_cells:
                         )
                 
                 # Download options
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.download_button(
-                        label="Download Comparison Data as CSV",
-                        data=all_discharge_data.to_csv(index=False).encode('utf-8'),
-                        file_name=f"discharge_comparison_cycle_{compare_cycle}.csv",
-                        mime='text/csv',
-                    )
-                
-                # Add publication quality plot download if selected
-                if pub_quality:
-                    with col2:
-                        # Build custom title or use default
-                        custom_title = pub_title if pub_title else f"Discharge Curve Comparison - Cycle {compare_cycle}"
-                        
-                        # Build axis ranges if provided
-                        x_range = None
-                        if x_min is not None and x_max is not None:
-                            x_range = [x_min, x_max]
-                        
-                        y_range = None
-                        if y_min is not None and y_max is not None:
-                            y_range = [y_min, y_max]
-                        
-                        mpl_fig, buf = generate_publication_plot(
-                            fig, 
-                            title=custom_title,
-                            xlabel="Capacity (mAh/g)",
-                            ylabel="Voltage (V)",
-                            x_range=x_range,
-                            y_range=y_range
-                        )
-                        st.download_button(
-                            label="Download Publication Quality PNG",
-                            data=buf,
-                            file_name=f"discharge_comparison_cycle_{compare_cycle}_pub.png",
-                            mime="image/png",
-                        )
+                st.download_button(
+                    label="Download Comparison Data as CSV",
+                    data=all_discharge_data.to_csv(index=False).encode('utf-8'),
+                    file_name=f"discharge_comparison_cycle_{compare_cycle}.csv",
+                    mime='text/csv',
+                )
     
     # Tab 3: Cell Information
     with mc_tab3:
