@@ -110,10 +110,12 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
             
             # Determine plot mode (lines, markers, or both)
             plot_mode = 'lines'  # Default mode
-            if hasattr(trace, 'mode'):
-                if 'markers' in trace.mode and 'lines' not in trace.mode:
+            if hasattr(trace, 'mode') and trace.mode is not None:
+                # Convert to string to safely use 'in' operator
+                trace_mode_str = str(trace.mode)
+                if 'markers' in trace_mode_str and 'lines' not in trace_mode_str:
                     plot_mode = 'markers'
-                elif 'markers' in trace.mode and 'lines' in trace.mode:
+                elif 'markers' in trace_mode_str and 'lines' in trace_mode_str:
                     plot_mode = 'lines+markers'
             
             marker_size = 8  # Default marker size
