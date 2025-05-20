@@ -108,6 +108,24 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
             y = trace.y
             name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
             
+            # Determine plot mode (lines, markers, or both)
+            plot_mode = 'lines'  # Default mode
+            if hasattr(trace, 'mode'):
+                if 'markers' in trace.mode and 'lines' not in trace.mode:
+                    plot_mode = 'markers'
+                elif 'markers' in trace.mode and 'lines' in trace.mode:
+                    plot_mode = 'lines+markers'
+            
+            marker_size = 8  # Default marker size
+            marker_symbol = 'o'  # Default marker symbol
+            if hasattr(trace, 'marker'):
+                if hasattr(trace.marker, 'size'):
+                    marker_size = trace.marker.size
+                if hasattr(trace.marker, 'symbol'):
+                    # Simple mapping for common marker symbols
+                    symbol_map = {'circle': 'o', 'square': 's', 'diamond': 'D', 'cross': 'x', 'x': 'x'}
+                    marker_symbol = symbol_map.get(trace.marker.symbol, 'o')
+            
             cycle_num = None
             is_charge = True  # Default to solid line
             
@@ -138,16 +156,29 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
                 
                 # Only show in legend once per cycle
                 if f"Cycle {cycle_num}" in legend_entries:
-                    ax.plot(x, y, color=color, linestyle=linestyle, label='_nolegend_')
+                    label = '_nolegend_'
                 else:
-                    ax.plot(x, y, color=color, linestyle=linestyle, label=f"Cycle {cycle_num}")
+                    label = f"Cycle {cycle_num}"
                     legend_entries.append(f"Cycle {cycle_num}")
             else:
                 # For non-cycle traces, use sequential coloring
                 color_idx = i % len(plotly_colors)
-                ax.plot(x, y, color=plotly_colors[color_idx], label=clean_name)
-                if clean_name not in legend_entries:
+                color = plotly_colors[color_idx]
+                linestyle = '-'  # Default linestyle
+                
+                if clean_name in legend_entries:
+                    label = '_nolegend_'
+                else:
+                    label = clean_name
                     legend_entries.append(clean_name)
+            
+            # Plot according to mode
+            if plot_mode == 'markers':
+                ax.scatter(x, y, color=color, s=marker_size**2, marker=marker_symbol, label=label)
+            elif plot_mode == 'lines+markers':
+                ax.plot(x, y, color=color, linestyle=linestyle, label=label, marker=marker_symbol, markersize=marker_size)
+            else:  # 'lines' is the default
+                ax.plot(x, y, color=color, linestyle=linestyle, label=label)
         
         # Set labels and title
         if xlabel:
