@@ -70,88 +70,84 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
         # Create matplotlib figure
         mpl_fig, ax = plt.subplots(figsize=(8, 6), dpi=300)
         
-        # Process trace names to avoid duplicates and extract cycle numbers
-        trace_info = {}
+        # Get the Plotly qualitative colors to match the original plots
+        try:
+            import plotly.colors as pc
+            plotly_colors = pc.qualitative.Plotly
+        except ImportError:
+            # Default colors if plotly.colors is not available
+            plotly_colors = [
+                '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+                '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
+            ]
+        
+        # Process trace names to extract cycle information
+        cycles_info = {}
+        legend_entries = []
+        
+        # First pass: identify cycles and their positions
+        cycle_positions = {}
         for i, trace in enumerate(fig.data):
             name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
             
-            # For charge-discharge plots, clean up the legend labels
+            # For charge-discharge plots, extract cycle number
             if "Cycle" in name:
-                # Extract the cycle number if the format is like "Cycle X Charge" or "Cycle X Discharge"
                 parts = name.split()
                 if len(parts) >= 2 and parts[0] == "Cycle":
                     try:
                         cycle_num = int(parts[1])
-                        cycle_type = "Charge" if "Charge" in name else "Discharge" if "Discharge" in name else ""
-                        clean_name = f"Cycle {cycle_num}" + (f" ({cycle_type})" if cycle_type else "")
-                        
-                        # Store cycle number for color consistency
-                        key = cycle_num
-                        if key not in trace_info:
-                            trace_info[key] = {
-                                'color': None,  # Will be set during plotting
-                                'names': []
-                            }
-                        trace_info[key]['names'].append((i, clean_name))
+                        if cycle_num not in cycle_positions:
+                            # Use the position of this cycle in the sequence to determine color
+                            cycle_positions[cycle_num] = len(cycle_positions)
                     except ValueError:
-                        # If cycle number is not an integer, keep original name
-                        trace_info[i] = {'color': None, 'names': [(i, name)]}
-                else:
-                    trace_info[i] = {'color': None, 'names': [(i, name)]}
-            else:
-                trace_info[i] = {'color': None, 'names': [(i, name)]}
+                        pass
         
-        # Extract Plotly colors if available
-        plotly_colors = []
-        for trace in fig.data:
-            if hasattr(trace, 'line') and hasattr(trace.line, 'color'):
-                plotly_colors.append(trace.line.color)
-            elif hasattr(trace, 'marker') and hasattr(trace.marker, 'color'):
-                plotly_colors.append(trace.marker.color)
-        
-        # Use color cycle if Plotly colors not available
-        if not plotly_colors:
-            prop_cycle = plt.rcParams['axes.prop_cycle']
-            plotly_colors = prop_cycle.by_key()['color']
-        
-        # Plot the data with consistent colors for the same cycle
-        legend_entries = []
-        cycle_colors = {}  # To track which cycles have been assigned colors
-        
-        # First pass: assign a unique color to each cycle number
-        for key in trace_info:
-            if isinstance(key, int):  # Key is a cycle number
-                cycle_colors[key] = plotly_colors[len(cycle_colors) % len(plotly_colors)]
-        
-        # Second pass: plot with assigned colors
+        # Second pass: plot the data with consistent colors based on cycle position
         for i, trace in enumerate(fig.data):
             x = trace.x
             y = trace.y
+            name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
             
-            # Find the information for this trace
-            for key, info in trace_info.items():
-                if any(idx == i for idx, _ in info['names']):
-                    # Get or set color for this group
-                    if info['color'] is None:
-                        if isinstance(key, int) and key in cycle_colors:
-                            # Use pre-assigned color for this cycle
-                            info['color'] = cycle_colors[key]
-                        else:
-                            # For non-cycle traces, use next available color
-                            info['color'] = plotly_colors[len(cycle_colors) % len(plotly_colors)]
-                            cycle_colors[f"other_{len(cycle_colors)}"] = info['color']
-                    
-                    # Plot with the assigned color
-                    color = info['color']
-                    name = next(name for idx, name in info['names'] if idx == i)
-                    
-                    # If this is already in legend, don't add again
-                    if name in legend_entries:
-                        ax.plot(x, y, color=color, label='_nolegend_')
-                    else:
-                        ax.plot(x, y, color=color, label=name)
-                        legend_entries.append(name)
-                    break
+            cycle_num = None
+            is_charge = True  # Default to solid line
+            
+            # Extract cycle information and determine if charge/discharge
+            if "Cycle" in name:
+                parts = name.split()
+                if len(parts) >= 2 and parts[0] == "Cycle":
+                    try:
+                        cycle_num = int(parts[1])
+                        is_charge = "Discharge" not in name  # Determine charge/discharge
+                        
+                        # Create cleaned name for legend
+                        cycle_type = "Charge" if "Charge" in name else "Discharge" if "Discharge" in name else ""
+                        clean_name = f"Cycle {cycle_num}" + (f" ({cycle_type})" if cycle_type else "")
+                    except ValueError:
+                        clean_name = name
+                else:
+                    clean_name = name
+            else:
+                clean_name = name
+            
+            # Determine color and line style
+            if cycle_num is not None and cycle_num in cycle_positions:
+                # Use cycle position to get color (matching Plotly's behavior)
+                color_idx = cycle_positions[cycle_num] % len(plotly_colors)
+                color = plotly_colors[color_idx]
+                linestyle = '-' if is_charge else '--'  # Solid for charge, dashed for discharge
+                
+                # Only show in legend once per cycle
+                if f"Cycle {cycle_num}" in legend_entries:
+                    ax.plot(x, y, color=color, linestyle=linestyle, label='_nolegend_')
+                else:
+                    ax.plot(x, y, color=color, linestyle=linestyle, label=f"Cycle {cycle_num}")
+                    legend_entries.append(f"Cycle {cycle_num}")
+            else:
+                # For non-cycle traces, use sequential coloring
+                color_idx = i % len(plotly_colors)
+                ax.plot(x, y, color=plotly_colors[color_idx], label=clean_name)
+                if clean_name not in legend_entries:
+                    legend_entries.append(clean_name)
         
         # Set labels and title
         if xlabel:
