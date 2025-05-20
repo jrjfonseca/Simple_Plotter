@@ -44,7 +44,7 @@ except (OSError, ImportError) as e:
     logger.warning("Publication plots will use default matplotlib style")
 
 # Function to convert Plotly figure to publication-quality matplotlib figure
-def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
+def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range=None, y_range=None, is_cycle_plot=False):
     """
     Convert Plotly figure data to a publication-quality matplotlib figure
     Uses SciencePlots if available, otherwise falls back to default style
@@ -54,6 +54,9 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
         title: Plot title
         xlabel: X-axis label
         ylabel: Y-axis label
+        x_range: Optional [min, max] for x-axis
+        y_range: Optional [min, max] for y-axis
+        is_cycle_plot: Whether this is a cycle-related plot (for integer x-ticks)
         
     Returns:
         BytesIO object containing the PNG image
@@ -85,10 +88,17 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
         cycles_info = {}
         legend_entries = []
         
+        # Track x-axis data to determine if it's cycle numbers
+        all_x_values = []
+        
         # First pass: identify cycles and their positions
         cycle_positions = {}
         for i, trace in enumerate(fig.data):
             name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
+            
+            # Collect x values to determine tick formatting
+            if hasattr(trace, 'x') and trace.x is not None:
+                all_x_values.extend(list(trace.x))
             
             # For charge-discharge plots, extract cycle number
             if "Cycle" in name:
@@ -182,6 +192,21 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
             else:  # 'lines' is the default
                 ax.plot(x, y, color=color, linestyle=linestyle, label=label)
         
+        # Set integer ticks for cycle plots
+        if is_cycle_plot or ("cycle" in xlabel.lower() if xlabel else False):
+            # Determine appropriate tick marks
+            if all_x_values:
+                # Get unique x values sorted
+                unique_x = sorted(list(set([int(x) for x in all_x_values if isinstance(x, (int, float))])))
+                
+                # If reasonable number of cycles, show all of them
+                if len(unique_x) <= 15:
+                    ax.set_xticks(unique_x)
+                else:
+                    # Otherwise, let matplotlib handle it but make sure they're integers
+                    import matplotlib.ticker as ticker
+                    ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+        
         # Set labels and title
         if xlabel:
             ax.set_xlabel(xlabel)
@@ -190,6 +215,12 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
         if title:
             ax.set_title(title)
             
+        # Set axis ranges if provided
+        if x_range and len(x_range) == 2:
+            ax.set_xlim(x_range)
+        if y_range and len(y_range) == 2:
+            ax.set_ylim(y_range)
+        
         # Add legend if we have named traces
         if legend_entries:
             ax.legend(frameon=True)
@@ -754,6 +785,18 @@ if st.session_state.has_data:
         # Add option for publication quality
         pub_quality = st.checkbox("Publication Quality Plot", key="pub_capacity", value=False)
         
+        # Add publication quality controls
+        if pub_quality:
+            with st.expander("Publication Plot Settings", expanded=False):
+                pub_title = st.text_input("Custom Plot Title", value="", key="pub_title_capacity")
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_min = st.number_input("X-axis Min", value=None, key="x_min_capacity")
+                    y_min = st.number_input("Y-axis Min", value=None, key="y_min_capacity")
+                with col2:
+                    x_max = st.number_input("X-axis Max", value=None, key="x_max_capacity")
+                    y_max = st.number_input("Y-axis Max", value=None, key="y_max_capacity")
+        
         if st.button("Generate Plot", key="btn_capacity"):
             with st.spinner("Generating plot..."):
                 # Generate plot
@@ -783,11 +826,27 @@ if st.session_state.has_data:
                 # Add publication quality plot download if selected
                 if pub_quality:
                     with col2:
+                        # Build custom title or use default
+                        custom_title = pub_title if pub_title else f"Capacity vs Cycle - {st.session_state.processed_data['metadata']['cell_id']}"
+                        
+                        # Build axis ranges if provided
+                        x_range = None
+                        if x_min is not None and x_max is not None:
+                            x_range = [x_min, x_max]
+                        
+                        y_range = None
+                        if y_min is not None and y_max is not None:
+                            y_range = [y_min, y_max]
+                        
+                        # Generate publication quality plot
                         buf = generate_publication_plot(
                             fig, 
-                            title=f"Capacity vs Cycle - {st.session_state.processed_data['metadata']['cell_id']}",
+                            title=custom_title,
                             xlabel="Cycle Number",
-                            ylabel="Capacity (mAh/g)"
+                            ylabel="Capacity (mAh/g)",
+                            x_range=x_range,
+                            y_range=y_range,
+                            is_cycle_plot=True
                         )
                         st.download_button(
                             label="Download Publication Quality PNG",
@@ -1067,6 +1126,18 @@ if st.session_state.has_multiple_cells:
         # Add option for publication quality
         pub_quality = st.checkbox("Publication Quality Plot", key="pub_mc_capacity", value=False)
         
+        # Add publication quality controls
+        if pub_quality:
+            with st.expander("Publication Plot Settings", expanded=False):
+                pub_title = st.text_input("Custom Plot Title", value="", key="pub_title_mc_capacity")
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_min = st.number_input("X-axis Min", value=None, key="x_min_mc_capacity")
+                    y_min = st.number_input("Y-axis Min", value=None, key="y_min_mc_capacity")
+                with col2:
+                    x_max = st.number_input("X-axis Max", value=None, key="x_max_mc_capacity")
+                    y_max = st.number_input("Y-axis Max", value=None, key="y_max_mc_capacity")
+        
         if st.button("Generate Comparison Plot", key="btn_mc_capacity"):
             with st.spinner("Generating multi-cell capacity comparison..."):
                 fig = go.Figure()
@@ -1129,11 +1200,27 @@ if st.session_state.has_multiple_cells:
                 # Add publication quality plot download if selected
                 if pub_quality:
                     with col2:
+                        # Build custom title or use default
+                        custom_title = pub_title if pub_title else "Capacity vs Cycle Comparison"
+                        
+                        # Build axis ranges if provided
+                        x_range = None
+                        if x_min is not None and x_max is not None:
+                            x_range = [x_min, x_max]
+                        
+                        y_range = None
+                        if y_min is not None and y_max is not None:
+                            y_range = [y_min, y_max]
+                        
+                        # Generate publication quality plot
                         buf = generate_publication_plot(
                             fig, 
-                            title="Capacity vs Cycle Comparison",
+                            title=custom_title,
                             xlabel="Cycle Number",
-                            ylabel="Capacity (mAh/g)"
+                            ylabel="Capacity (mAh/g)",
+                            x_range=x_range,
+                            y_range=y_range,
+                            is_cycle_plot=True
                         )
                         st.download_button(
                             label="Download Publication Quality PNG",
