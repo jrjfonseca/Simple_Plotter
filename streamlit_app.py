@@ -196,14 +196,25 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         if is_cycle_plot or ("cycle" in xlabel.lower() if xlabel else False):
             # Determine appropriate tick marks
             if all_x_values:
-                # Get unique x values sorted
-                unique_x = sorted(list(set([int(x) for x in all_x_values if isinstance(x, (int, float))])))
-                
-                # If reasonable number of cycles, show all of them
-                if len(unique_x) <= 15:
-                    ax.set_xticks(unique_x)
-                else:
-                    # Otherwise, let matplotlib handle it but make sure they're integers
+                try:
+                    # Get unique x values sorted, handle potential type conversion issues
+                    unique_x = []
+                    for x in all_x_values:
+                        try:
+                            if x is not None:
+                                unique_x.append(int(float(x)))
+                        except (ValueError, TypeError):
+                            pass  # Skip values that can't be converted to int
+                    
+                    unique_x = sorted(list(set(unique_x)))
+                    
+                    # If reasonable number of cycles, show all of them
+                    if unique_x and len(unique_x) <= 15:
+                        ax.set_xticks(unique_x)
+                        ax.set_xticklabels([str(x) for x in unique_x])
+                except Exception as e:
+                    logger.warning(f"Error setting integer ticks: {e}")
+                    # Fallback to matplotlib's integer locator
                     import matplotlib.ticker as ticker
                     ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
         
@@ -732,6 +743,18 @@ if st.session_state.has_data:
         # Add option for publication quality
         pub_quality = st.checkbox("Publication Quality Plot", key="pub_cd", value=False)
         
+        # Add publication quality controls
+        if pub_quality:
+            with st.expander("Publication Plot Settings", expanded=False):
+                pub_title = st.text_input("Custom Plot Title", value="", key="pub_title_cd")
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_min = st.number_input("X-axis Min", value=None, key="x_min_cd")
+                    y_min = st.number_input("Y-axis Min", value=None, key="y_min_cd")
+                with col2:
+                    x_max = st.number_input("X-axis Max", value=None, key="x_max_cd")
+                    y_max = st.number_input("Y-axis Max", value=None, key="y_max_cd")
+        
         if st.button("Generate Plot", key="btn_cd"):
             with st.spinner("Generating plot..."):
                 # Parse cycles
@@ -765,11 +788,25 @@ if st.session_state.has_data:
                 # Add publication quality plot download if selected
                 if pub_quality:
                     with col2:
+                        # Build custom title or use default
+                        custom_title = pub_title if pub_title else f"Charge-Discharge Curves - {st.session_state.processed_data['metadata']['cell_id']}"
+                        
+                        # Build axis ranges if provided
+                        x_range = None
+                        if x_min is not None and x_max is not None:
+                            x_range = [x_min, x_max]
+                        
+                        y_range = None
+                        if y_min is not None and y_max is not None:
+                            y_range = [y_min, y_max]
+                        
                         buf = generate_publication_plot(
                             fig, 
-                            title=f"Charge-Discharge Curves - {st.session_state.processed_data['metadata']['cell_id']}",
+                            title=custom_title,
                             xlabel="Capacity (mAh/g)",
-                            ylabel="Voltage (V)"
+                            ylabel="Voltage (V)",
+                            x_range=x_range,
+                            y_range=y_range
                         )
                         st.download_button(
                             label="Download Publication Quality PNG",
@@ -862,6 +899,18 @@ if st.session_state.has_data:
         # Add option for publication quality
         pub_quality = st.checkbox("Publication Quality Plot", key="pub_soh", value=False)
         
+        # Add publication quality controls
+        if pub_quality:
+            with st.expander("Publication Plot Settings", expanded=False):
+                pub_title = st.text_input("Custom Plot Title", value="", key="pub_title_soh")
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_min = st.number_input("X-axis Min", value=None, key="x_min_soh")
+                    y_min = st.number_input("Y-axis Min", value=None, key="y_min_soh")
+                with col2:
+                    x_max = st.number_input("X-axis Max", value=None, key="x_max_soh")
+                    y_max = st.number_input("Y-axis Max", value=None, key="y_max_soh")
+        
         if st.button("Generate Plot", key="btn_soh"):
             with st.spinner("Generating plot..."):
                 # Generate plot
@@ -894,11 +943,26 @@ if st.session_state.has_data:
                 # Add publication quality plot download if selected
                 if pub_quality:
                     with col2:
+                        # Build custom title or use default
+                        custom_title = pub_title if pub_title else f"State of Health - {st.session_state.processed_data['metadata']['cell_id']}"
+                        
+                        # Build axis ranges if provided
+                        x_range = None
+                        if x_min is not None and x_max is not None:
+                            x_range = [x_min, x_max]
+                        
+                        y_range = None
+                        if y_min is not None and y_max is not None:
+                            y_range = [y_min, y_max]
+                        
                         buf = generate_publication_plot(
                             fig, 
-                            title=f"State of Health - {st.session_state.processed_data['metadata']['cell_id']}",
+                            title=custom_title,
                             xlabel="Cycle Number",
-                            ylabel="State of Health (%)"
+                            ylabel="State of Health (%)",
+                            x_range=x_range,
+                            y_range=y_range,
+                            is_cycle_plot=True
                         )
                         st.download_button(
                             label="Download Publication Quality PNG",
@@ -913,6 +977,18 @@ if st.session_state.has_data:
         
         # Add option for publication quality
         pub_quality = st.checkbox("Publication Quality Plot", key="pub_ce", value=False)
+        
+        # Add publication quality controls
+        if pub_quality:
+            with st.expander("Publication Plot Settings", expanded=False):
+                pub_title = st.text_input("Custom Plot Title", value="", key="pub_title_ce")
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_min = st.number_input("X-axis Min", value=None, key="x_min_ce")
+                    y_min = st.number_input("Y-axis Min", value=None, key="y_min_ce")
+                with col2:
+                    x_max = st.number_input("X-axis Max", value=None, key="x_max_ce")
+                    y_max = st.number_input("Y-axis Max", value=None, key="y_max_ce")
         
         if st.button("Generate Plot", key="btn_ce"):
             with st.spinner("Generating plot..."):
@@ -946,11 +1022,26 @@ if st.session_state.has_data:
                 # Add publication quality plot download if selected
                 if pub_quality:
                     with col2:
+                        # Build custom title or use default
+                        custom_title = pub_title if pub_title else f"Coulombic Efficiency - {st.session_state.processed_data['metadata']['cell_id']}"
+                        
+                        # Build axis ranges if provided
+                        x_range = None
+                        if x_min is not None and x_max is not None:
+                            x_range = [x_min, x_max]
+                        
+                        y_range = None
+                        if y_min is not None and y_max is not None:
+                            y_range = [y_min, y_max]
+                        
                         buf = generate_publication_plot(
                             fig, 
-                            title=f"Coulombic Efficiency - {st.session_state.processed_data['metadata']['cell_id']}",
+                            title=custom_title,
                             xlabel="Cycle Number",
-                            ylabel="Coulombic Efficiency (%)"
+                            ylabel="Coulombic Efficiency (%)",
+                            x_range=x_range,
+                            y_range=y_range,
+                            is_cycle_plot=True
                         )
                         st.download_button(
                             label="Download Publication Quality PNG",
@@ -965,6 +1056,18 @@ if st.session_state.has_data:
         
         # Add option for publication quality
         pub_quality = st.checkbox("Publication Quality Plot", key="pub_vt", value=False)
+        
+        # Add publication quality controls
+        if pub_quality:
+            with st.expander("Publication Plot Settings", expanded=False):
+                pub_title = st.text_input("Custom Plot Title", value="", key="pub_title_vt")
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_min = st.number_input("X-axis Min", value=None, key="x_min_vt")
+                    y_min = st.number_input("Y-axis Min", value=None, key="y_min_vt")
+                with col2:
+                    x_max = st.number_input("X-axis Max", value=None, key="x_max_vt")
+                    y_max = st.number_input("Y-axis Max", value=None, key="y_max_vt")
         
         if st.button("Generate Plot", key="btn_vt"):
             with st.spinner("Generating plot..."):
@@ -995,11 +1098,25 @@ if st.session_state.has_data:
                 # Add publication quality plot download if selected
                 if pub_quality:
                     with col2:
+                        # Build custom title or use default
+                        custom_title = pub_title if pub_title else f"Voltage vs Time - {st.session_state.processed_data['metadata']['cell_id']}"
+                        
+                        # Build axis ranges if provided
+                        x_range = None
+                        if x_min is not None and x_max is not None:
+                            x_range = [x_min, x_max]
+                        
+                        y_range = None
+                        if y_min is not None and y_max is not None:
+                            y_range = [y_min, y_max]
+                        
                         buf = generate_publication_plot(
                             fig, 
-                            title=f"Voltage vs Time - {st.session_state.processed_data['metadata']['cell_id']}",
+                            title=custom_title,
                             xlabel="Time (h)",
-                            ylabel="Voltage (V)"
+                            ylabel="Voltage (V)",
+                            x_range=x_range,
+                            y_range=y_range
                         )
                         st.download_button(
                             label="Download Publication Quality PNG",
@@ -1017,6 +1134,18 @@ if st.session_state.has_data:
         
         # Add option for publication quality
         pub_quality = st.checkbox("Publication Quality Plot", key="pub_dqdv", value=False)
+        
+        # Add publication quality controls
+        if pub_quality:
+            with st.expander("Publication Plot Settings", expanded=False):
+                pub_title = st.text_input("Custom Plot Title", value="", key="pub_title_dqdv")
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_min = st.number_input("X-axis Min", value=None, key="x_min_dqdv")
+                    y_min = st.number_input("Y-axis Min", value=None, key="y_min_dqdv")
+                with col2:
+                    x_max = st.number_input("X-axis Max", value=None, key="x_max_dqdv")
+                    y_max = st.number_input("Y-axis Max", value=None, key="y_max_dqdv")
         
         if st.button("Generate Plot", key="btn_dqdv"):
             with st.spinner("Generating plot..."):
@@ -1038,11 +1167,25 @@ if st.session_state.has_data:
                 
                 # Add publication quality plot download if selected
                 if pub_quality:
+                    # Build custom title or use default
+                    custom_title = pub_title if pub_title else f"Differential Capacity - {st.session_state.processed_data['metadata']['cell_id']}"
+                    
+                    # Build axis ranges if provided
+                    x_range = None
+                    if x_min is not None and x_max is not None:
+                        x_range = [x_min, x_max]
+                    
+                    y_range = None
+                    if y_min is not None and y_max is not None:
+                        y_range = [y_min, y_max]
+                    
                     buf = generate_publication_plot(
                         fig, 
-                        title=f"Differential Capacity - {st.session_state.processed_data['metadata']['cell_id']}",
+                        title=custom_title,
                         xlabel="Voltage (V)",
-                        ylabel="dQ/dV (mAh/g·V)"
+                        ylabel="dQ/dV (mAh/g·V)",
+                        x_range=x_range,
+                        y_range=y_range
                     )
                     st.download_button(
                         label="Download Publication Quality PNG",
@@ -1060,6 +1203,18 @@ if st.session_state.has_data:
         
         # Add option for publication quality
         pub_quality = st.checkbox("Publication Quality Plot", key="pub_cp", value=False)
+        
+        # Add publication quality controls
+        if pub_quality:
+            with st.expander("Publication Plot Settings", expanded=False):
+                pub_title = st.text_input("Custom Plot Title", value="", key="pub_title_cp")
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_min = st.number_input("X-axis Min", value=None, key="x_min_cp")
+                    y_min = st.number_input("Y-axis Min", value=None, key="y_min_cp")
+                with col2:
+                    x_max = st.number_input("X-axis Max", value=None, key="x_max_cp")
+                    y_max = st.number_input("Y-axis Max", value=None, key="y_max_cp")
         
         if st.button("Generate Plot", key="btn_cp"):
             with st.spinner("Generating plot..."):
@@ -1081,11 +1236,26 @@ if st.session_state.has_data:
                 
                 # Add publication quality plot download if selected
                 if pub_quality:
+                    # Build custom title or use default
+                    custom_title = pub_title if pub_title else f"Combined Performance - {st.session_state.processed_data['metadata']['cell_id']}"
+                    
+                    # Build axis ranges if provided
+                    x_range = None
+                    if x_min is not None and x_max is not None:
+                        x_range = [x_min, x_max]
+                    
+                    y_range = None
+                    if y_min is not None and y_max is not None:
+                        y_range = [y_min, y_max]
+                    
                     buf = generate_publication_plot(
                         fig, 
-                        title=f"Combined Performance - {st.session_state.processed_data['metadata']['cell_id']}",
+                        title=custom_title,
                         xlabel="Cycle Number",
-                        ylabel="Performance Metrics"
+                        ylabel="Performance Metrics",
+                        x_range=x_range,
+                        y_range=y_range,
+                        is_cycle_plot=True
                     )
                     st.download_button(
                         label="Download Publication Quality PNG",
@@ -1219,8 +1389,7 @@ if st.session_state.has_multiple_cells:
                             xlabel="Cycle Number",
                             ylabel="Capacity (mAh/g)",
                             x_range=x_range,
-                            y_range=y_range,
-                            is_cycle_plot=True
+                            y_range=y_range
                         )
                         st.download_button(
                             label="Download Publication Quality PNG",
@@ -1244,6 +1413,15 @@ if st.session_state.has_multiple_cells:
             )
             # Add option for publication quality
             pub_quality = st.checkbox("Publication Quality Plot", key="pub_mc_discharge", value=False)
+            
+            # Add publication quality controls
+            if pub_quality:
+                with st.expander("Publication Plot Settings", expanded=False):
+                    pub_title = st.text_input("Custom Plot Title", value="", key="pub_title_mc_discharge")
+                    x_min = st.number_input("X-axis Min", value=None, key="x_min_mc_discharge")
+                    x_max = st.number_input("X-axis Max", value=None, key="x_max_mc_discharge")
+                    y_min = st.number_input("Y-axis Min", value=None, key="y_min_mc_discharge")
+                    y_max = st.number_input("Y-axis Max", value=None, key="y_max_mc_discharge")
         
         if st.button("Generate Comparison Plot", key="btn_mc_cd"):
             with st.spinner("Generating multi-cell discharge comparison..."):
@@ -1335,11 +1513,25 @@ if st.session_state.has_multiple_cells:
                 # Add publication quality plot download if selected
                 if pub_quality:
                     with col2:
+                        # Build custom title or use default
+                        custom_title = pub_title if pub_title else f"Discharge Curve Comparison - Cycle {compare_cycle}"
+                        
+                        # Build axis ranges if provided
+                        x_range = None
+                        if x_min is not None and x_max is not None:
+                            x_range = [x_min, x_max]
+                        
+                        y_range = None
+                        if y_min is not None and y_max is not None:
+                            y_range = [y_min, y_max]
+                        
                         buf = generate_publication_plot(
                             fig, 
-                            title=f"Discharge Curve Comparison - Cycle {compare_cycle}",
+                            title=custom_title,
                             xlabel="Capacity (mAh/g)",
-                            ylabel="Voltage (V)"
+                            ylabel="Voltage (V)",
+                            x_range=x_range,
+                            y_range=y_range
                         )
                         st.download_button(
                             label="Download Publication Quality PNG",
