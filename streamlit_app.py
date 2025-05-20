@@ -70,17 +70,77 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
         # Create matplotlib figure
         mpl_fig, ax = plt.subplots(figsize=(8, 6), dpi=300)
         
-        # Extract data from Plotly figure and plot in matplotlib
+        # Process trace names to avoid duplicates and extract cycle numbers
+        trace_info = {}
+        for i, trace in enumerate(fig.data):
+            name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
+            
+            # For charge-discharge plots, clean up the legend labels
+            if "Cycle" in name:
+                # Extract the cycle number if the format is like "Cycle X Charge" or "Cycle X Discharge"
+                parts = name.split()
+                if len(parts) >= 2 and parts[0] == "Cycle":
+                    try:
+                        cycle_num = int(parts[1])
+                        cycle_type = "Charge" if "Charge" in name else "Discharge" if "Discharge" in name else ""
+                        clean_name = f"Cycle {cycle_num}" + (f" ({cycle_type})" if cycle_type else "")
+                        
+                        # Store cycle number for color consistency
+                        key = cycle_num
+                        if key not in trace_info:
+                            trace_info[key] = {
+                                'color': None,  # Will be set during plotting
+                                'names': []
+                            }
+                        trace_info[key]['names'].append((i, clean_name))
+                    except ValueError:
+                        # If cycle number is not an integer, keep original name
+                        trace_info[i] = {'color': None, 'names': [(i, name)]}
+                else:
+                    trace_info[i] = {'color': None, 'names': [(i, name)]}
+            else:
+                trace_info[i] = {'color': None, 'names': [(i, name)]}
+        
+        # Extract Plotly colors if available
+        plotly_colors = []
         for trace in fig.data:
+            if hasattr(trace, 'line') and hasattr(trace.line, 'color'):
+                plotly_colors.append(trace.line.color)
+            elif hasattr(trace, 'marker') and hasattr(trace.marker, 'color'):
+                plotly_colors.append(trace.marker.color)
+        
+        # Use color cycle if Plotly colors not available
+        if not plotly_colors:
+            prop_cycle = plt.rcParams['axes.prop_cycle']
+            plotly_colors = prop_cycle.by_key()['color']
+        
+        # Plot the data with consistent colors for the same cycle
+        legend_entries = []
+        for i, trace in enumerate(fig.data):
             x = trace.x
             y = trace.y
-            name = trace.name if hasattr(trace, 'name') else None
             
-            # Plot the data
-            if name:
-                ax.plot(x, y, label=name)
-            else:
-                ax.plot(x, y)
+            # Find the information for this trace
+            for key, info in trace_info.items():
+                if any(idx == i for idx, _ in info['names']):
+                    # Get or set color for this group
+                    if info['color'] is None:
+                        if isinstance(key, int) and key < len(plotly_colors):
+                            info['color'] = plotly_colors[key % len(plotly_colors)]
+                        else:
+                            info['color'] = plotly_colors[i % len(plotly_colors)]
+                    
+                    # Plot with the assigned color
+                    color = info['color']
+                    name = next(name for idx, name in info['names'] if idx == i)
+                    
+                    # If this is already in legend, don't add again
+                    if name in legend_entries:
+                        ax.plot(x, y, color=color, label='_nolegend_')
+                    else:
+                        ax.plot(x, y, color=color, label=name)
+                        legend_entries.append(name)
+                    break
         
         # Set labels and title
         if xlabel:
@@ -90,9 +150,9 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
         if title:
             ax.set_title(title)
             
-        # Add legend if there are multiple traces
-        if len(fig.data) > 1:
-            ax.legend()
+        # Add legend if we have named traces
+        if legend_entries:
+            ax.legend(frameon=True)
             
         # Adjust layout
         plt.tight_layout()
