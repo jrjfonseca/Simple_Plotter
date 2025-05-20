@@ -33,13 +33,21 @@ sys.path.append(str(example_functions_lib))
 # Import the electrochemistry module
 import electrochemistry as ec
 
-# Import SciencePlots
-plt.style.use(['science'])
+# Try to use SciencePlots if available
+SCIENCEPLOTS_AVAILABLE = False
+try:
+    plt.style.use(['science'])
+    SCIENCEPLOTS_AVAILABLE = True
+    logger.info("SciencePlots styles loaded successfully")
+except (OSError, ImportError) as e:
+    logger.warning(f"SciencePlots styles not available: {e}")
+    logger.warning("Publication plots will use default matplotlib style")
 
 # Function to convert Plotly figure to publication-quality matplotlib figure
 def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
     """
-    Convert Plotly figure data to a publication-quality matplotlib figure using SciencePlots
+    Convert Plotly figure data to a publication-quality matplotlib figure
+    Uses SciencePlots if available, otherwise falls back to default style
     
     Args:
         fig: Plotly figure object
@@ -50,7 +58,15 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None):
     Returns:
         BytesIO object containing the PNG image
     """
-    with plt.style.context(['science']):
+    # Use context manager only if SciencePlots is available
+    if SCIENCEPLOTS_AVAILABLE:
+        plt_context = plt.style.context(['science'])
+    else:
+        # Create a no-op context manager as fallback
+        from contextlib import nullcontext
+        plt_context = nullcontext()
+    
+    with plt_context:
         # Create matplotlib figure
         mpl_fig, ax = plt.subplots(figsize=(8, 6), dpi=300)
         
