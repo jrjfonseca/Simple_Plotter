@@ -1495,7 +1495,7 @@ if st.session_state.has_multiple_cells:
                                 mode='lines',
                                 line=dict(width=line_width),
                                 opacity=opacity,
-                                name=f"{cell_name}",
+                                name=f"{cell_name} ({cell_data['metadata']['cathode_type']})",
                                 legendgroup=cell_name,
                                 showlegend=True
                             ))
@@ -1515,7 +1515,7 @@ if st.session_state.has_multiple_cells:
                                 mode='lines',
                                 line=dict(width=line_width, dash='dash'),
                                 opacity=opacity,
-                                name=f"{cell_name}",
+                                name=f"{cell_name} ({cell_data['metadata']['cathode_type']})",
                                 legendgroup=cell_name,
                                 showlegend=(curve_display == "Charge Only")
                             ))
