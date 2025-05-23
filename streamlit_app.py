@@ -91,6 +91,23 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         # Track x-axis data to determine if it's cycle numbers
         all_x_values = []
         
+        # Group traces by legendgroup to ensure consistent coloring
+        legend_groups = {}
+        for i, trace in enumerate(fig.data):
+            name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
+            group = trace.legendgroup if hasattr(trace, 'legendgroup') and trace.legendgroup else name
+            
+            if group not in legend_groups:
+                legend_groups[group] = []
+            
+            legend_groups[group].append(i)
+        
+        # Assign colors to legend groups
+        group_colors = {}
+        for i, group in enumerate(legend_groups.keys()):
+            color_idx = i % len(plotly_colors)
+            group_colors[group] = plotly_colors[color_idx]
+        
         # First pass: identify cycles and their positions
         cycle_positions = {}
         for i, trace in enumerate(fig.data):
@@ -112,11 +129,12 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                     except ValueError:
                         pass
         
-        # Second pass: plot the data with consistent colors based on cycle position
+        # Second pass: plot the data with consistent colors based on legend group or cycle position
         for i, trace in enumerate(fig.data):
             x = trace.x
             y = trace.y
             name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
+            group = trace.legendgroup if hasattr(trace, 'legendgroup') and trace.legendgroup else name
             
             # Determine plot mode (lines, markers, or both)
             plot_mode = 'lines'  # Default mode
@@ -159,6 +177,14 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
             else:
                 clean_name = name
             
+            # Check if this is a charge or discharge curve by looking at line dash property
+            is_dashed = False
+            if hasattr(trace, 'line') and hasattr(trace.line, 'dash') and trace.line.dash == 'dash':
+                is_dashed = True
+                is_charge = True  # Assume dashed lines are charge curves
+            else:
+                is_charge = False  # Assume solid lines are discharge curves
+            
             # Determine color and line style
             if cycle_num is not None and cycle_num in cycle_positions:
                 # Use cycle position to get color (matching Plotly's behavior)
@@ -173,16 +199,23 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                     label = f"Cycle {cycle_num}"
                     legend_entries.append(f"Cycle {cycle_num}")
             else:
-                # For non-cycle traces, use sequential coloring
-                color_idx = i % len(plotly_colors)
-                color = plotly_colors[color_idx]
-                linestyle = '-'  # Default linestyle
+                # For grouped traces, use the group's color
+                if group in group_colors:
+                    color = group_colors[group]
+                else:
+                    # Fall back to sequential coloring
+                    color_idx = i % len(plotly_colors)
+                    color = plotly_colors[color_idx]
                 
-                if clean_name in legend_entries:
+                # Use dashed lines for charge curves
+                linestyle = '--' if is_dashed else '-'
+                
+                # Only show one legend entry per group
+                if group in legend_entries:
                     label = '_nolegend_'
                 else:
                     label = clean_name
-                    legend_entries.append(clean_name)
+                    legend_entries.append(group)
             
             # Plot according to mode
             if plot_mode == 'markers':
