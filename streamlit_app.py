@@ -1495,7 +1495,9 @@ if st.session_state.has_multiple_cells:
                                 mode='lines',
                                 line=dict(width=line_width),
                                 opacity=opacity,
-                                name=f"{cell_name} (Discharge)"
+                                name=f"{cell_name}",
+                                legendgroup=cell_name,
+                                showlegend=True
                             ))
                     
                     if curve_display == "Both" or curve_display == "Charge Only":
@@ -1513,7 +1515,9 @@ if st.session_state.has_multiple_cells:
                                 mode='lines',
                                 line=dict(width=line_width, dash='dash'),
                                 opacity=opacity,
-                                name=f"{cell_name} (Charge)"
+                                name=f"{cell_name}",
+                                legendgroup=cell_name,
+                                showlegend=(curve_display == "Charge Only")
                             ))
                 
                 # Update layout
@@ -1522,6 +1526,8 @@ if st.session_state.has_multiple_cells:
                     title_suffix = " - Discharge"
                 elif curve_display == "Charge Only":
                     title_suffix = " - Charge"
+                else:
+                    title_suffix = " (solid=discharge, dash=charge)"
                 
                 fig.update_layout(
                     title=f"Charge-Discharge Curve Comparison - Cycle {compare_cycle}{title_suffix}",
