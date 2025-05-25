@@ -1362,7 +1362,14 @@ if st.session_state.has_multiple_cells:
         st.subheader("Capacity vs Cycle Comparison")
         
         # Add option for publication quality
-        pub_quality = st.checkbox("Publication Quality Plot", key="pub_mc_capacity", value=False)
+        col1, col2 = st.columns(2)
+        with col1:
+            pub_quality = st.checkbox("Publication Quality Plot", key="pub_mc_capacity", value=False)
+        with col2:
+            exclude_last_cycle = st.checkbox("Exclude Last Cycle", 
+                help="Check this to exclude the last cycle from the plot (useful for ongoing tests)",
+                key="exclude_last_cycle",
+                value=False)
         
         # Add publication quality controls
         if pub_quality:
@@ -1388,6 +1395,10 @@ if st.session_state.has_multiple_cells:
                     df = cell_data['df']
                     discharge_df = df[df['Step_Type'] == 'Discharge']
                     capacity_data = discharge_df.groupby('Cycle_Index')['Capacity'].max().reset_index()
+                    
+                    # Exclude last cycle if option is selected
+                    if exclude_last_cycle and len(capacity_data) > 1:
+                        capacity_data = capacity_data[:-1]
                     
                     # Add trace for this cell
                     fig.add_trace(go.Scatter(
@@ -1455,6 +1466,10 @@ if st.session_state.has_multiple_cells:
                     df = cell_data['df']
                     discharge_df = df[df['Step_Type'] == 'Discharge']
                     capacity_series = discharge_df.groupby('Cycle_Index')['Capacity'].max()
+                    
+                    # Exclude last cycle in the data if option is selected
+                    if exclude_last_cycle and len(capacity_series) > 1:
+                        capacity_series = capacity_series[:-1]
                     
                     # Add to comparison dataframe
                     comparison_data[f"{cell_data['display_name']}"] = pd.Series(capacity_series)
