@@ -1758,7 +1758,7 @@ if st.session_state.has_multiple_cells:
                         'Cathode Type': cell_data['metadata']['cathode_type'],
                         'Cell ID': cell_data['display_name'],
                         'First Discharge (mAh/g)': round(first_discharge, 2),
-                        f'Discharge at Cycle {selected_cycle} (mAh/g)': round(selected_discharge, 2),
+                        'Discharge at Cycle (mAh/g)': f"{round(selected_discharge, 2)} ({selected_cycle})",
                         'Capacity Retention (%)': round(retention, 2)
                     })
                 
