@@ -1350,10 +1350,11 @@ if st.session_state.has_multiple_cells:
     st.markdown(f"**Comparing:** {selected_cells_info}")
     
     # Tabs for different comparison plot types
-    mc_tab1, mc_tab2, mc_tab3 = st.tabs([
+    mc_tab1, mc_tab2, mc_tab3, mc_tab4 = st.tabs([
         "Capacity vs Cycle", 
         "Charge-Discharge", 
-        "Cell Information"
+        "Cell Information",
+        "Capacity Retention"
     ])
     
     # Tab 1: Multi-Cell Capacity
@@ -1703,6 +1704,101 @@ if st.session_state.has_multiple_cells:
         # Convert to DataFrame for display
         comparison_df = pd.DataFrame(comparison_table)
         st.dataframe(comparison_df, use_container_width=True)
+
+    # Tab 4: Capacity Retention Analysis
+    with mc_tab4:
+        st.subheader("Capacity Retention Analysis")
+        
+        # Create input fields for cycle selection
+        cycle_inputs = {}
+        
+        # Create number input for each cell
+        for cell_key in st.session_state.selected_cells:
+            cell_data = st.session_state.cells[cell_key]
+            cell_name = cell_data['display_name']
+            
+            # Get the maximum cycle number for this cell
+            df = cell_data['df']
+            max_cycle = df['Cycle_Index'].max()
+            
+            # Create number input for cycle selection
+            cycle_inputs[cell_key] = st.number_input(
+                f"Select cycle for {cell_name}",
+                min_value=1,
+                max_value=int(max_cycle),
+                value=int(max_cycle),
+                key=f"retention_cycle_{cell_key}"
+            )
+        
+        if st.button("Calculate Retention", key="btn_retention"):
+            with st.spinner("Calculating capacity retention..."):
+                # Create data for the retention table
+                retention_data = []
+                
+                for cell_key in st.session_state.selected_cells:
+                    cell_data = st.session_state.cells[cell_key]
+                    df = cell_data['df']
+                    
+                    # Get discharge capacity data
+                    discharge_df = df[df['Step_Type'] == 'Discharge']
+                    capacity_data = discharge_df.groupby('Cycle_Index')['Capacity'].max()
+                    
+                    # Get first discharge capacity
+                    first_discharge = capacity_data.iloc[0]
+                    
+                    # Get selected cycle discharge capacity
+                    selected_cycle = cycle_inputs[cell_key]
+                    selected_discharge = capacity_data.loc[selected_cycle]
+                    
+                    # Calculate retention
+                    retention = (selected_discharge / first_discharge) * 100
+                    
+                    # Add to retention data
+                    retention_data.append({
+                        'Cathode Type': cell_data['metadata']['cathode_type'],
+                        'Cell ID': cell_data['display_name'],
+                        'First Discharge (mAh/g)': round(first_discharge, 2),
+                        f'Discharge at Cycle {selected_cycle} (mAh/g)': round(selected_discharge, 2),
+                        'Capacity Retention (%)': round(retention, 2)
+                    })
+                
+                # Create and display the retention table
+                retention_df = pd.DataFrame(retention_data)
+                st.markdown("### Capacity Retention Results")
+                st.dataframe(retention_df, use_container_width=True)
+                
+                # Add download button for retention data
+                st.download_button(
+                    label="Download Retention Data as CSV",
+                    data=retention_df.to_csv(index=False).encode('utf-8'),
+                    file_name="capacity_retention_comparison.csv",
+                    mime='text/csv',
+                )
+                
+                # Create a bar plot of retention values
+                fig = go.Figure()
+                
+                # Add bars for retention values
+                fig.add_trace(go.Bar(
+                    x=[data['Cell ID'] for data in retention_data],
+                    y=[data['Capacity Retention (%)'] for data in retention_data],
+                    text=[f"{data['Capacity Retention (%)']:.1f}%" for data in retention_data],
+                    textposition='auto',
+                ))
+                
+                # Update layout
+                fig.update_layout(
+                    title="Capacity Retention Comparison",
+                    xaxis_title="Cell ID",
+                    yaxis_title="Capacity Retention (%)",
+                    yaxis=dict(range=[0, 105]),  # Set y-axis range from 0 to 105%
+                )
+                
+                # Enhance plot
+                fig = enhance_plot(fig)
+                
+                # Display the plot
+                st.plotly_chart(fig, use_container_width=True)
 
 # Welcome info when no data is loaded
 else:
