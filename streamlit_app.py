@@ -1491,14 +1491,32 @@ if st.session_state.has_multiple_cells:
         col1, col2 = st.columns([1, 2])
         
         with col1:
-            # Input for cycle selection
-            compare_cycle = st.number_input("Cycle to compare:", min_value=1, value=1)
-            highlight_cell = st.selectbox(
-                "Highlight cell:", 
-                ["None"] + [st.session_state.cells[key]['display_name'] for key in st.session_state.selected_cells]
-            )
+            # Input for cycle selection for each cell
+            cycle_selections = {}
+            st.markdown("### Select Cycles for Each Cell")
+            
+            for cell_key in st.session_state.selected_cells:
+                cell_data = st.session_state.cells[cell_key]
+                cell_name = cell_data['display_name']
+                
+                # Get maximum cycle number for this cell
+                df = cell_data['df']
+                max_cycle = int(df['Cycle_Index'].max())
+                
+                # Create an expander for each cell's cycle selection
+                with st.expander(f"{cell_name} Cycles"):
+                    # Multi-select for cycles
+                    available_cycles = list(range(1, max_cycle + 1))
+                    cycle_selections[cell_key] = st.multiselect(
+                        "Select cycles",
+                        options=available_cycles,
+                        default=[1],
+                        key=f"cycles_{cell_key}"
+                    )
+            
             # Add option to show charge, discharge, or both
             curve_display = st.radio("Display curves:", ["Both", "Discharge Only", "Charge Only"])
+            
             # Add option for publication quality
             pub_quality = st.checkbox("Publication Quality Plot", key="pub_mc_discharge", value=False)
             
@@ -1515,59 +1533,77 @@ if st.session_state.has_multiple_cells:
             with st.spinner("Generating multi-cell charge-discharge comparison..."):
                 fig = go.Figure()
                 
-                # Plot charge and/or discharge curve for selected cycle for each cell
-                for cell_key in st.session_state.selected_cells:
+                # Import plotly colors for base colors
+                import plotly.colors as pc
+                plotly_colors = pc.qualitative.Plotly
+                
+                # Plot charge and/or discharge curve for selected cycles for each cell
+                for idx, cell_key in enumerate(st.session_state.selected_cells):
                     cell_data = st.session_state.cells[cell_key]
                     cell_name = cell_data['display_name']
                     
-                    # Get data for the selected cycle
-                    df = cell_data['df']
-                    cycle_df = df[df['Cycle_Index'] == compare_cycle]
+                    # Get base color for this cell
+                    base_color = plotly_colors[idx % len(plotly_colors)]
                     
-                    # Set line width based on highlight selection
-                    line_width = 3 if highlight_cell == cell_name else 1.5
-                    opacity = 1.0 if highlight_cell == "None" or highlight_cell == cell_name else 0.7
+                    # Get selected cycles for this cell
+                    selected_cycles = cycle_selections[cell_key]
                     
-                    # Determine which curves to display
-                    if curve_display == "Both" or curve_display == "Discharge Only":
-                        # Get discharge data for this cycle
-                        discharge_df = cycle_df[cycle_df['Step_Type'] == 'Discharge']
-                        
-                        # Sort by voltage (descending for discharge)
-                        discharge_df = discharge_df.sort_values('Voltage', ascending=False)
-                        
-                        # Add discharge trace
-                        if not discharge_df.empty:
-                            fig.add_trace(go.Scatter(
-                                x=discharge_df['Capacity'],
-                                y=discharge_df['Voltage'],
-                                mode='lines',
-                                line=dict(width=line_width),
-                                opacity=opacity,
-                                name=f"{cell_name} ({cell_data['metadata']['cathode_type']})",
-                                legendgroup=cell_name,
-                                showlegend=True
-                            ))
+                    # Sort cycles to ensure consistent darkening
+                    selected_cycles.sort()
                     
-                    if curve_display == "Both" or curve_display == "Charge Only":
-                        # Get charge data for this cycle
-                        charge_df = cycle_df[cycle_df['Step_Type'] == 'Charge']
+                    # Calculate color gradients
+                    n_cycles = len(selected_cycles)
+                    
+                    for cycle_idx, cycle in enumerate(selected_cycles):
+                        # Get data for the selected cycle
+                        df = cell_data['df']
+                        cycle_df = df[df['Cycle_Index'] == cycle]
                         
-                        # Sort by voltage (ascending for charge)
-                        charge_df = charge_df.sort_values('Voltage', ascending=True)
+                        # Calculate darkness factor (0 to 0.7)
+                        darkness = (cycle_idx / max(1, n_cycles - 1)) * 0.7
                         
-                        # Add charge trace
-                        if not charge_df.empty:
-                            fig.add_trace(go.Scatter(
-                                x=charge_df['Capacity'],
-                                y=charge_df['Voltage'],
-                                mode='lines',
-                                line=dict(width=line_width, dash='dash'),
-                                opacity=opacity,
-                                name=f"{cell_name} ({cell_data['metadata']['cathode_type']})",
-                                legendgroup=cell_name,
-                                showlegend=(curve_display == "Charge Only")
-                            ))
+                        # Convert base color to RGB and darken it
+                        rgb = pc.hex_to_rgb(base_color)
+                        darkened_rgb = [max(0, int(c * (1 - darkness))) for c in rgb]
+                        darkened_color = f'rgb({darkened_rgb[0]}, {darkened_rgb[1]}, {darkened_rgb[2]})'
+                        
+                        if curve_display == "Both" or curve_display == "Discharge Only":
+                            # Get discharge data for this cycle
+                            discharge_df = cycle_df[cycle_df['Step_Type'] == 'Discharge']
+                            
+                            # Sort by voltage (descending for discharge)
+                            discharge_df = discharge_df.sort_values('Voltage', ascending=False)
+                            
+                            # Add discharge trace
+                            if not discharge_df.empty:
+                                fig.add_trace(go.Scatter(
+                                    x=discharge_df['Capacity'],
+                                    y=discharge_df['Voltage'],
+                                    mode='lines',
+                                    line=dict(color=darkened_color, width=2),
+                                    name=f"{cell_name} - Cycle {cycle}",
+                                    legendgroup=cell_name,
+                                    showlegend=True
+                                ))
+                        
+                        if curve_display == "Both" or curve_display == "Charge Only":
+                            # Get charge data for this cycle
+                            charge_df = cycle_df[cycle_df['Step_Type'] == 'Charge']
+                            
+                            # Sort by voltage (ascending for charge)
+                            charge_df = charge_df.sort_values('Voltage', ascending=True)
+                            
+                            # Add charge trace
+                            if not charge_df.empty:
+                                fig.add_trace(go.Scatter(
+                                    x=charge_df['Capacity'],
+                                    y=charge_df['Voltage'],
+                                    mode='lines',
+                                    line=dict(color=darkened_color, width=2, dash='dash'),
+                                    name=f"{cell_name} - Cycle {cycle} (Charge)",
+                                    legendgroup=cell_name,
+                                    showlegend=(curve_display == "Charge Only")
+                                ))
                 
                 # Update layout
                 title_suffix = ""
@@ -1579,7 +1615,7 @@ if st.session_state.has_multiple_cells:
                     title_suffix = " (solid=discharge, dash=charge)"
                 
                 fig.update_layout(
-                    title=f"Charge-Discharge Curve Comparison - Cycle {compare_cycle}{title_suffix}",
+                    title=f"Charge-Discharge Curve Comparison{title_suffix}",
                     xaxis_title="Capacity (mAh/g)",
                     yaxis_title="Voltage (V)",
                     legend_title="Cells"
@@ -1591,7 +1627,7 @@ if st.session_state.has_multiple_cells:
                 # Handle publication quality option
                 if pub_quality:
                     # Build custom title or use default
-                    custom_title = pub_title if pub_title else f"Charge-Discharge Curve Comparison - Cycle {compare_cycle}{title_suffix}"
+                    custom_title = pub_title if pub_title else f"Charge-Discharge Curve Comparison{title_suffix}"
                     
                     # Build axis ranges if provided
                     x_range = None
@@ -1620,7 +1656,7 @@ if st.session_state.has_multiple_cells:
                     st.download_button(
                         label="Download Publication Quality PNG",
                         data=buf,
-                        file_name=f"charge_discharge_comparison_cycle_{compare_cycle}_pub.png",
+                        file_name=f"charge_discharge_comparison_pub.png",
                         mime="image/png",
                     )
                 else:
@@ -1634,45 +1670,49 @@ if st.session_state.has_multiple_cells:
                     cell_data = st.session_state.cells[cell_key]
                     cell_name = cell_data['display_name']
                     
-                    # Get and process data
-                    df = cell_data['df']
-                    cycle_df = df[df['Cycle_Index'] == compare_cycle]
+                    # Get selected cycles for this cell
+                    selected_cycles = cycle_selections[cell_key]
                     
-                    if curve_display == "Both" or curve_display == "Discharge Only":
-                        discharge_df = cycle_df[cycle_df['Step_Type'] == 'Discharge'].sort_values('Voltage', ascending=False)
-                        if not discharge_df.empty:
-                            # Create cell-specific columns for discharge
-                            cell_discharge = pd.DataFrame({
-                                f'Capacity_Discharge_{cell_name}': discharge_df['Capacity'],
-                                f'Voltage_Discharge_{cell_name}': discharge_df['Voltage']
-                            })
-                            
-                            # Add to composite dataframe
-                            if all_data.empty:
-                                all_data = cell_discharge
-                            else:
-                                all_data = pd.concat([all_data, cell_discharge], axis=1)
-                    
-                    if curve_display == "Both" or curve_display == "Charge Only":
-                        charge_df = cycle_df[cycle_df['Step_Type'] == 'Charge'].sort_values('Voltage', ascending=True)
-                        if not charge_df.empty:
-                            # Create cell-specific columns for charge
-                            cell_charge = pd.DataFrame({
-                                f'Capacity_Charge_{cell_name}': charge_df['Capacity'],
-                                f'Voltage_Charge_{cell_name}': charge_df['Voltage']
-                            })
-                            
-                            # Add to composite dataframe
-                            if all_data.empty:
-                                all_data = cell_charge
-                            else:
-                                all_data = pd.concat([all_data, cell_charge], axis=1)
+                    for cycle in selected_cycles:
+                        # Get and process data
+                        df = cell_data['df']
+                        cycle_df = df[df['Cycle_Index'] == cycle]
+                        
+                        if curve_display == "Both" or curve_display == "Discharge Only":
+                            discharge_df = cycle_df[cycle_df['Step_Type'] == 'Discharge'].sort_values('Voltage', ascending=False)
+                            if not discharge_df.empty:
+                                # Create cell-specific columns for discharge
+                                cell_discharge = pd.DataFrame({
+                                    f'Capacity_Discharge_{cell_name}_Cycle_{cycle}': discharge_df['Capacity'],
+                                    f'Voltage_Discharge_{cell_name}_Cycle_{cycle}': discharge_df['Voltage']
+                                })
+                                
+                                # Add to composite dataframe
+                                if all_data.empty:
+                                    all_data = cell_discharge
+                                else:
+                                    all_data = pd.concat([all_data, cell_discharge], axis=1)
+                        
+                        if curve_display == "Both" or curve_display == "Charge Only":
+                            charge_df = cycle_df[cycle_df['Step_Type'] == 'Charge'].sort_values('Voltage', ascending=True)
+                            if not charge_df.empty:
+                                # Create cell-specific columns for charge
+                                cell_charge = pd.DataFrame({
+                                    f'Capacity_Charge_{cell_name}_Cycle_{cycle}': charge_df['Capacity'],
+                                    f'Voltage_Charge_{cell_name}_Cycle_{cycle}': charge_df['Voltage']
+                                })
+                                
+                                # Add to composite dataframe
+                                if all_data.empty:
+                                    all_data = cell_charge
+                                else:
+                                    all_data = pd.concat([all_data, cell_charge], axis=1)
                 
                 # Download options
                 st.download_button(
                     label="Download Comparison Data as CSV",
                     data=all_data.to_csv(index=False).encode('utf-8'),
-                    file_name=f"charge_discharge_comparison_cycle_{compare_cycle}.csv",
+                    file_name="charge_discharge_comparison.csv",
                     mime='text/csv',
                 )
     
