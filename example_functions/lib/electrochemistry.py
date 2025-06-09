@@ -314,16 +314,22 @@ def plot_charge_discharge(df: pd.DataFrame, cycles_to_plot: list = None,
     if cycles_to_plot is None:
         cycles_to_plot = [1, 10, 50, 100]
     
-    # Create color scale for cycles
+    # Create extended color palette for cycles (more than 10 colors)
     import plotly.colors as pc
-    colors = pc.qualitative.Plotly
+    base_colors = pc.qualitative.Plotly
+    # Extend palette by combining multiple qualitative palettes
+    extended_colors = (base_colors + 
+                      pc.qualitative.Dark2 + 
+                      pc.qualitative.Set1 + 
+                      pc.qualitative.Set3)
     
     fig = go.Figure()
     
     for i, cycle in enumerate(cycles_to_plot):
         if cycle in df['Cycle_Index'].unique():
-            color_idx = i % len(colors)
-            cycle_color = colors[color_idx]
+            # Use cycle number (not index) to ensure same cycle always gets same color
+            color_idx = (cycle - 1) % len(extended_colors)  # cycle-1 so cycle 1 gets first color
+            cycle_color = extended_colors[color_idx]
             
             # Get charge data for this cycle
             charge_mask = (df['Cycle_Index'] == cycle) & (df['Step_Type'] == 'Charge')
@@ -683,14 +689,23 @@ def plot_differential_capacity(df: pd.DataFrame, cycles: list = [1, 2],
     # Create the plot
     fig = go.Figure()
     
-    # Create color scale for cycles
+    # Create extended color palette for cycles (consistent with charge-discharge plots)
     import plotly.colors as pc
-    colors = pc.qualitative.Plotly  # Use the same color palette as other plots
+    base_colors = pc.qualitative.Plotly
+    # Extend palette by combining multiple qualitative palettes
+    extended_colors = (base_colors + 
+                      pc.qualitative.Dark2 + 
+                      pc.qualitative.Set1 + 
+                      pc.qualitative.Set3)
     
     # Process each cycle
     for cycle_idx, cycle in enumerate(cycles):
         cycle_mask = df['Cycle_Index'] == cycle
         cycle_data = df[cycle_mask]
+        
+        # Use cycle number (not index) to ensure same cycle always gets same color
+        color_idx = (cycle - 1) % len(extended_colors)  # cycle-1 so cycle 1 gets first color
+        cycle_color = extended_colors[color_idx]
         
         # Process both charge and discharge
         for step_type in ['Charge', 'Discharge']:
@@ -730,7 +745,7 @@ def plot_differential_capacity(df: pd.DataFrame, cycles: list = [1, 2],
                     y=dqdv,
                     name=f'{step_type} - Cycle {cycle}',
                     line=dict(
-                        color=colors[cycle_idx % len(colors)],
+                        color=cycle_color,  # Use consistent cycle color
                         width=2,
                         dash='solid' if step_type == 'Charge' else 'dot'
                     ),

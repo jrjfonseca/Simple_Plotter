@@ -73,15 +73,23 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         # Create matplotlib figure
         mpl_fig, ax = plt.subplots(figsize=(8, 6), dpi=300)
         
-        # Get the Plotly qualitative colors to match the original plots
+        # Get extended color palette to match the original plots
         try:
             import plotly.colors as pc
-            plotly_colors = pc.qualitative.Plotly
+            base_colors = pc.qualitative.Plotly
+            # Extend palette by combining multiple qualitative palettes (same as electrochemistry.py)
+            plotly_colors = (base_colors + 
+                           pc.qualitative.Dark2 + 
+                           pc.qualitative.Set1 + 
+                           pc.qualitative.Set3)
         except ImportError:
-            # Default colors if plotly.colors is not available
+            # Extended default colors if plotly.colors is not available
             plotly_colors = [
                 '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-                '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
+                '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+                '#A6CEE3', '#1F78B4', '#B2DF8A', '#33A02C', '#FB9A99',
+                '#E31A1C', '#FDBF6F', '#FF7F00', '#CAB2D6', '#6A3D9A',
+                '#8DD3C7', '#FFFFB3', '#BEBADA', '#FB8072', '#80B1D3'
             ]
         
 
@@ -176,25 +184,48 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                 cell_name = name
                 cycle_num = None
             
-            # Determine color based on CELL, not cycle - SAME color for all cycles from this cell
-            if cell_name in cell_colors:
-                color = cell_colors[cell_name]
-            else:
-                # Fall back to sequential coloring
-                color_idx = i % len(plotly_colors)
-                color = plotly_colors[color_idx]
-            
-            # Determine line style based on cycle position within this cell
-            # 1st cycle = solid, 2nd cycle = dashed (for BOTH charge and discharge)
-            linestyle = '-'  # Default solid
-            if cell_name in cell_cycle_order and cycle_num is not None:
-                cycle_position = cell_cycle_order[cell_name].index(cycle_num)
-                if cycle_position == 0:
-                    linestyle = '-'   # Solid for first cycle
-                elif cycle_position == 1:
-                    linestyle = '--'  # Dashed for second cycle
+            # Determine color assignment: for multi-cell (CELL-based), for single cell (CYCLE-based)
+            if len(cell_groups) > 1:
+                # Multi-cell comparison: same color per cell, different line styles per cycle
+                if cell_name in cell_colors:
+                    color = cell_colors[cell_name]
                 else:
-                    linestyle = ':'   # Dotted for additional cycles
+                    # Fall back to sequential coloring
+                    color_idx = i % len(plotly_colors)
+                    color = plotly_colors[color_idx]
+            else:
+                # Single cell: different color per cycle (consistent with electrochemistry.py)
+                if cycle_num is not None:
+                    # Use cycle number (not index) to ensure same cycle always gets same color
+                    color_idx = (cycle_num - 1) % len(plotly_colors)  # cycle-1 so cycle 1 gets first color
+                    color = plotly_colors[color_idx]
+                else:
+                    # Fall back to sequential coloring
+                    color_idx = i % len(plotly_colors)
+                    color = plotly_colors[color_idx]
+            
+            # Determine line style based on plot type and cycle/charge info
+            linestyle = '-'  # Default solid
+            
+            if len(cell_groups) > 1:
+                # Multi-cell comparison: line style based on cycle position within cell
+                if cell_name in cell_cycle_order and cycle_num is not None:
+                    cycle_position = cell_cycle_order[cell_name].index(cycle_num)
+                    if cycle_position == 0:
+                        linestyle = '-'   # Solid for first cycle
+                    elif cycle_position == 1:
+                        linestyle = '--'  # Dashed for second cycle
+                    else:
+                        linestyle = ':'   # Dotted for additional cycles
+            else:
+                # Single cell: line style based on charge/discharge (consistent with electrochemistry.py)
+                if hasattr(trace, 'line') and hasattr(trace.line, 'dash'):
+                    if trace.line.dash == 'dot':
+                        linestyle = ':'   # Dotted for discharge in single cell
+                    elif trace.line.dash == 'dash':
+                        linestyle = '--'  # Dashed (if needed)
+                    else:
+                        linestyle = '-'   # Solid for charge in single cell
             
             # Set legend label - only show one entry per cycle
             # Check if this trace should be hidden from legend (either explicitly or by naming convention)
