@@ -1561,13 +1561,11 @@ if st.session_state.has_multiple_cells:
                         # Second cycle (higher number) = dashed line
                         line_style = 'solid' if cycle_idx == 0 else 'dash'
                         
-                        # Build legend name with cycles information
-                        if len(selected_cycles) == 1:
-                            legend_name = f"{cell_name} - Cycle {cycle}"
-                        else:
-                            # For multiple cycles, show individual cycle with line style indicator
-                            style_indicator = "solid" if cycle_idx == 0 else "dashed"
-                            legend_name = f"{cell_name} - Cycle {cycle} ({style_indicator})"
+                        # Build legend name with cycles information - always show cycle number clearly
+                        legend_name = f"{cell_name} - Cycle {cycle}"
+                        
+                        # Create unique legend group for each cycle to ensure both show up in legend
+                        unique_legendgroup = f"{cell_name}_cycle_{cycle}"
                         
                         if curve_display == "Both" or curve_display == "Discharge Only":
                             # Get discharge data for this cycle
@@ -1584,7 +1582,7 @@ if st.session_state.has_multiple_cells:
                                     mode='lines',
                                     line=dict(color=base_color, width=2, dash=line_style),
                                     name=legend_name,
-                                    legendgroup=cell_name,
+                                    legendgroup=unique_legendgroup,
                                     showlegend=True
                                 ))
                         
@@ -1606,7 +1604,7 @@ if st.session_state.has_multiple_cells:
                                     mode='lines',
                                     line=dict(color=base_color, width=2, dash=charge_line_style),
                                     name=f"{legend_name} (Charge)",
-                                    legendgroup=cell_name,
+                                    legendgroup=unique_legendgroup,
                                     showlegend=(curve_display == "Charge Only")
                                 ))
                 
