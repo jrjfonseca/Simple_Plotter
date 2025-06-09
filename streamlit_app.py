@@ -196,8 +196,13 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                 else:
                     linestyle = ':'   # Dotted for additional cycles
             
-            # Set legend label with clear cycle information
-            label = name  # Keep the full name including cycle number
+            # Set legend label - only show one entry per cycle (hide charge curves from legend)
+            if "(Charge)" in name:
+                # Hide charge curves from legend since discharge curve will represent the cycle
+                label = "_nolegend_"
+            else:
+                # For discharge curves, use clean name without "(Charge)" to represent the whole cycle
+                label = name
             
             # Plot according to mode
             if plot_mode == 'markers':
