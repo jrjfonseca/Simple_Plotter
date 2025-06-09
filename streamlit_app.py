@@ -91,45 +91,34 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         # Track x-axis data to determine if it's cycle numbers
         all_x_values = []
         
-        # Group traces by legendgroup to ensure consistent coloring
-        legend_groups = {}
+        # Group traces by cell name to ensure consistent coloring per cell
+        cell_groups = {}
         for i, trace in enumerate(fig.data):
             name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
-            group = trace.legendgroup if hasattr(trace, 'legendgroup') and trace.legendgroup else name
             
-            if group not in legend_groups:
-                legend_groups[group] = []
+            # Extract cell name from trace name (format: "Cell Name - Cycle X")
+            if " - Cycle " in name:
+                cell_name = name.split(" - Cycle ")[0]
+            else:
+                cell_name = name
             
-            legend_groups[group].append(i)
+            if cell_name not in cell_groups:
+                cell_groups[cell_name] = []
+            
+            cell_groups[cell_name].append(i)
         
-        # Assign colors to legend groups
-        group_colors = {}
-        for i, group in enumerate(legend_groups.keys()):
+        # Assign colors to cells - SAME color per cell regardless of cycle
+        cell_colors = {}
+        for i, cell_name in enumerate(cell_groups.keys()):
             color_idx = i % len(plotly_colors)
-            group_colors[group] = plotly_colors[color_idx]
+            cell_colors[cell_name] = plotly_colors[color_idx]
         
-        # First pass: identify cycles and their positions
-        cycle_positions = {}
+        # Collect x values to determine tick formatting
         for i, trace in enumerate(fig.data):
-            name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
-            
-            # Collect x values to determine tick formatting
             if hasattr(trace, 'x') and trace.x is not None:
                 all_x_values.extend(list(trace.x))
-            
-            # For charge-discharge plots, extract cycle number
-            if "Cycle" in name:
-                parts = name.split()
-                if len(parts) >= 2 and parts[0] == "Cycle":
-                    try:
-                        cycle_num = int(parts[1])
-                        if cycle_num not in cycle_positions:
-                            # Use the position of this cycle in the sequence to determine color
-                            cycle_positions[cycle_num] = len(cycle_positions)
-                    except ValueError:
-                        pass
         
-        # Second pass: plot the data with consistent colors based on legend group or cycle position
+        # Plot the data with consistent colors based on cell name (same cell = same color)
         for i, trace in enumerate(fig.data):
             x = trace.x
             y = trace.y
@@ -156,66 +145,35 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                     symbol_map = {'circle': 'o', 'square': 's', 'diamond': 'D', 'cross': 'x', 'x': 'x'}
                     marker_symbol = symbol_map.get(trace.marker.symbol, 'o')
             
-            cycle_num = None
-            is_charge = True  # Default to solid line
+            # Use the trace name as the legend label
+            clean_name = name
             
-            # Extract cycle information and determine if charge/discharge
-            if "Cycle" in name:
-                parts = name.split()
-                if len(parts) >= 2 and parts[0] == "Cycle":
-                    try:
-                        cycle_num = int(parts[1])
-                        is_charge = "Discharge" not in name  # Determine charge/discharge
-                        
-                        # Create cleaned name for legend
-                        cycle_type = "Charge" if "Charge" in name else "Discharge" if "Discharge" in name else ""
-                        clean_name = f"Cycle {cycle_num}" + (f" ({cycle_type})" if cycle_type else "")
-                    except ValueError:
-                        clean_name = name
-                else:
-                    clean_name = name
+            # Extract cell name from trace name for consistent coloring
+            if " - Cycle " in name:
+                cell_name = name.split(" - Cycle ")[0]
             else:
-                clean_name = name
+                cell_name = name
             
-            # Check if this is a charge or discharge curve by looking at line dash property
-            is_dashed = False
-            if hasattr(trace, 'line') and hasattr(trace.line, 'dash') and trace.line.dash == 'dash':
-                is_dashed = True
-                is_charge = True  # Assume dashed lines are charge curves
+            # Determine color based on CELL, not cycle - CRITICAL FIX!
+            if cell_name in cell_colors:
+                color = cell_colors[cell_name]  # SAME color for all cycles from this cell
             else:
-                is_charge = False  # Assume solid lines are discharge curves
-            
-            # Determine color and line style
-            if cycle_num is not None and cycle_num in cycle_positions:
-                # Use cycle position to get color (matching Plotly's behavior)
-                color_idx = cycle_positions[cycle_num] % len(plotly_colors)
+                # Fall back to sequential coloring
+                color_idx = i % len(plotly_colors)
                 color = plotly_colors[color_idx]
-                linestyle = '-' if is_charge else '--'  # Solid for charge, dashed for discharge
-                
-                # Only show in legend once per cycle
-                if f"Cycle {cycle_num}" in legend_entries:
-                    label = '_nolegend_'
-                else:
-                    label = f"Cycle {cycle_num}"
-                    legend_entries.append(f"Cycle {cycle_num}")
-            else:
-                # For grouped traces, use the group's color
-                if group in group_colors:
-                    color = group_colors[group]
-                else:
-                    # Fall back to sequential coloring
-                    color_idx = i % len(plotly_colors)
-                    color = plotly_colors[color_idx]
-                
-                # Use dashed lines for charge curves
-                linestyle = '--' if is_dashed else '-'
-                
-                # Only show one legend entry per group
-                if group in legend_entries:
-                    label = '_nolegend_'
-                else:
-                    label = clean_name
-                    legend_entries.append(group)
+            
+            # Determine line style based on dash property from Plotly trace
+            linestyle = '-'  # Default solid
+            if hasattr(trace, 'line') and hasattr(trace.line, 'dash'):
+                if trace.line.dash == 'dash':
+                    linestyle = '--'  # Dashed
+                elif trace.line.dash == 'dot':
+                    linestyle = ':'   # Dotted
+                elif trace.line.dash == 'dashdot':
+                    linestyle = '-.'  # Dash-dot
+            
+            # Set legend label
+            label = clean_name
             
             # Plot according to mode
             if plot_mode == 'markers':
