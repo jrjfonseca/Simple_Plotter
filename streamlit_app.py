@@ -1542,7 +1542,7 @@ if st.session_state.has_multiple_cells:
                     cell_data = st.session_state.cells[cell_key]
                     cell_name = cell_data['display_name']
                     
-                    # Get base color for this cell
+                    # IMPORTANT: Get ONE base color for this cell - ALL cycles from this cell will use this SAME color
                     base_color = plotly_colors[idx % len(plotly_colors)]
                     
                     # Get selected cycles for this cell
@@ -1556,7 +1556,7 @@ if st.session_state.has_multiple_cells:
                         df = cell_data['df']
                         cycle_df = df[df['Cycle_Index'] == cycle]
                         
-                        # Determine line style based on cycle position
+                        # CRITICAL: Same cell = same color, different cycles = different line styles
                         # First cycle (lowest number) = solid line
                         # Second cycle (higher number) = dashed line
                         line_style = 'solid' if cycle_idx == 0 else 'dash'
@@ -1580,6 +1580,7 @@ if st.session_state.has_multiple_cells:
                                     x=discharge_df['Capacity'],
                                     y=discharge_df['Voltage'],
                                     mode='lines',
+                                    # SAME base_color for all cycles from this cell, only dash style differs
                                     line=dict(color=base_color, width=2, dash=line_style),
                                     name=legend_name,
                                     legendgroup=unique_legendgroup,
