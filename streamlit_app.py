@@ -196,12 +196,22 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                 else:
                     linestyle = ':'   # Dotted for additional cycles
             
-            # Set legend label - only show one entry per cycle (hide charge curves from legend)
+            # Set legend label - only show one entry per cycle
+            # Check if this trace should be hidden from legend (either explicitly or by naming convention)
+            should_hide_legend = False
+            
+            # Case 1: Multi-cell plots with "(Charge)" in name
             if "(Charge)" in name:
-                # Hide charge curves from legend since discharge curve will represent the cycle
+                should_hide_legend = True
+            
+            # Case 2: Single cell plots where original Plotly trace has showlegend=False
+            if hasattr(trace, 'showlegend') and trace.showlegend is False:
+                should_hide_legend = True
+            
+            if should_hide_legend:
                 label = "_nolegend_"
             else:
-                # For discharge curves, use clean name without "(Charge)" to represent the whole cycle
+                # For discharge curves or traces that should show in legend
                 label = name
             
             # Plot according to mode

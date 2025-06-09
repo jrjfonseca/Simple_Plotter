@@ -350,10 +350,10 @@ def plot_charge_discharge(df: pd.DataFrame, cycles_to_plot: list = None,
                 go.Scatter(
                     x=discharge_data['Capacity'],
                     y=discharge_data['Voltage'],
-                    name=f'Cycle {cycle}',
+                    name=f'Cycle {cycle} Discharge',  # Different name to avoid confusion
                     line=dict(color=cycle_color, dash='dot'),
                     legendgroup=f'cycle_{cycle}',
-                    showlegend=False
+                    showlegend=False  # Explicitly hide from legend
                 )
             )
     
