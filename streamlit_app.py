@@ -1548,24 +1548,26 @@ if st.session_state.has_multiple_cells:
                     # Get selected cycles for this cell
                     selected_cycles = cycle_selections[cell_key]
                     
-                    # Sort cycles to ensure consistent darkening
+                    # Sort cycles to ensure consistent ordering
                     selected_cycles.sort()
-                    
-                    # Calculate color gradients
-                    n_cycles = len(selected_cycles)
                     
                     for cycle_idx, cycle in enumerate(selected_cycles):
                         # Get data for the selected cycle
                         df = cell_data['df']
                         cycle_df = df[df['Cycle_Index'] == cycle]
                         
-                        # Calculate darkness factor (0 to 0.7)
-                        darkness = (cycle_idx / max(1, n_cycles - 1)) * 0.7
+                        # Determine line style based on cycle position
+                        # First cycle (lowest number) = solid line
+                        # Second cycle (higher number) = dashed line
+                        line_style = 'solid' if cycle_idx == 0 else 'dash'
                         
-                        # Convert base color to RGB and darken it
-                        rgb = pc.hex_to_rgb(base_color)
-                        darkened_rgb = [max(0, int(c * (1 - darkness))) for c in rgb]
-                        darkened_color = f'rgb({darkened_rgb[0]}, {darkened_rgb[1]}, {darkened_rgb[2]})'
+                        # Build legend name with cycles information
+                        if len(selected_cycles) == 1:
+                            legend_name = f"{cell_name} - Cycle {cycle}"
+                        else:
+                            # For multiple cycles, show individual cycle with line style indicator
+                            style_indicator = "solid" if cycle_idx == 0 else "dashed"
+                            legend_name = f"{cell_name} - Cycle {cycle} ({style_indicator})"
                         
                         if curve_display == "Both" or curve_display == "Discharge Only":
                             # Get discharge data for this cycle
@@ -1580,8 +1582,8 @@ if st.session_state.has_multiple_cells:
                                     x=discharge_df['Capacity'],
                                     y=discharge_df['Voltage'],
                                     mode='lines',
-                                    line=dict(color=darkened_color, width=2),
-                                    name=f"{cell_name} - Cycle {cycle}",
+                                    line=dict(color=base_color, width=2, dash=line_style),
+                                    name=legend_name,
                                     legendgroup=cell_name,
                                     showlegend=True
                                 ))
@@ -1595,12 +1597,15 @@ if st.session_state.has_multiple_cells:
                             
                             # Add charge trace
                             if not charge_df.empty:
+                                # For charge curves, we distinguish them with a different dash pattern
+                                charge_line_style = 'dot' if cycle_idx == 0 else 'dashdot'
+                                
                                 fig.add_trace(go.Scatter(
                                     x=charge_df['Capacity'],
                                     y=charge_df['Voltage'],
                                     mode='lines',
-                                    line=dict(color=darkened_color, width=2, dash='dash'),
-                                    name=f"{cell_name} - Cycle {cycle} (Charge)",
+                                    line=dict(color=base_color, width=2, dash=charge_line_style),
+                                    name=f"{legend_name} (Charge)",
                                     legendgroup=cell_name,
                                     showlegend=(curve_display == "Charge Only")
                                 ))
@@ -1608,17 +1613,17 @@ if st.session_state.has_multiple_cells:
                 # Update layout
                 title_suffix = ""
                 if curve_display == "Discharge Only":
-                    title_suffix = " - Discharge"
+                    title_suffix = " - Discharge (1st cycle=solid, 2nd cycle=dashed)"
                 elif curve_display == "Charge Only":
-                    title_suffix = " - Charge"
+                    title_suffix = " - Charge (1st cycle=dotted, 2nd cycle=dash-dot)"
                 else:
-                    title_suffix = " (solid=discharge, dash=charge)"
+                    title_suffix = " (Discharge: 1st cycle=solid, 2nd cycle=dashed; Charge: 1st cycle=dotted, 2nd cycle=dash-dot)"
                 
                 fig.update_layout(
                     title=f"Charge-Discharge Curve Comparison{title_suffix}",
                     xaxis_title="Capacity (mAh/g)",
                     yaxis_title="Voltage (V)",
-                    legend_title="Cells"
+                    legend_title="Cells & Cycles"
                 )
                 
                 # Enhance plot
