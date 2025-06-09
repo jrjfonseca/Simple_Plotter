@@ -84,9 +84,7 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                 '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
             ]
         
-        # Process trace names to extract cycle information
-        cycles_info = {}
-        legend_entries = []
+
         
         # Track x-axis data to determine if it's cycle numbers
         all_x_values = []
@@ -249,9 +247,8 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         if y_range and len(y_range) == 2:
             ax.set_ylim(y_range)
         
-        # Add legend if we have named traces
-        if legend_entries:
-            ax.legend(frameon=True)
+        # Add legend - matplotlib automatically handles unique labels
+        ax.legend(frameon=True)
             
         # Adjust layout
         plt.tight_layout()
