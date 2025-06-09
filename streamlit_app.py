@@ -92,26 +92,45 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         all_x_values = []
         
         # Group traces by cell name to ensure consistent coloring per cell
+        # Also track cycles per cell to determine line styles
         cell_groups = {}
+        cell_cycles = {}  # Track which cycles each cell has
+        
         for i, trace in enumerate(fig.data):
             name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
             
-            # Extract cell name from trace name (format: "Cell Name - Cycle X")
+            # Extract cell name and cycle from trace name (format: "Cell Name - Cycle X" or "Cell Name - Cycle X (Charge)")
             if " - Cycle " in name:
-                cell_name = name.split(" - Cycle ")[0]
+                parts = name.split(" - Cycle ")
+                cell_name = parts[0]
+                cycle_part = parts[1].split(" (")[0]  # Remove "(Charge)" if present
+                try:
+                    cycle_num = int(cycle_part)
+                except ValueError:
+                    cycle_num = None
             else:
                 cell_name = name
+                cycle_num = None
             
+            # Track cell groups
             if cell_name not in cell_groups:
                 cell_groups[cell_name] = []
+                cell_cycles[cell_name] = set()
             
             cell_groups[cell_name].append(i)
+            if cycle_num is not None:
+                cell_cycles[cell_name].add(cycle_num)
         
         # Assign colors to cells - SAME color per cell regardless of cycle
         cell_colors = {}
         for i, cell_name in enumerate(cell_groups.keys()):
             color_idx = i % len(plotly_colors)
             cell_colors[cell_name] = plotly_colors[color_idx]
+        
+        # Create sorted cycle lists for each cell to determine line styles
+        cell_cycle_order = {}
+        for cell_name, cycles in cell_cycles.items():
+            cell_cycle_order[cell_name] = sorted(list(cycles))
         
         # Collect x values to determine tick formatting
         for i, trace in enumerate(fig.data):
@@ -145,35 +164,42 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                     symbol_map = {'circle': 'o', 'square': 's', 'diamond': 'D', 'cross': 'x', 'x': 'x'}
                     marker_symbol = symbol_map.get(trace.marker.symbol, 'o')
             
-            # Use the trace name as the legend label
-            clean_name = name
-            
-            # Extract cell name from trace name for consistent coloring
+            # Extract cell name and cycle from trace name for consistent styling
             if " - Cycle " in name:
-                cell_name = name.split(" - Cycle ")[0]
+                parts = name.split(" - Cycle ")
+                cell_name = parts[0]
+                cycle_part = parts[1].split(" (")[0]  # Remove "(Charge)" if present
+                try:
+                    cycle_num = int(cycle_part)
+                except ValueError:
+                    cycle_num = None
+                    cell_name = name
             else:
                 cell_name = name
+                cycle_num = None
             
-            # Determine color based on CELL, not cycle - CRITICAL FIX!
+            # Determine color based on CELL, not cycle - SAME color for all cycles from this cell
             if cell_name in cell_colors:
-                color = cell_colors[cell_name]  # SAME color for all cycles from this cell
+                color = cell_colors[cell_name]
             else:
                 # Fall back to sequential coloring
                 color_idx = i % len(plotly_colors)
                 color = plotly_colors[color_idx]
             
-            # Determine line style based on dash property from Plotly trace
+            # Determine line style based on cycle position within this cell
+            # 1st cycle = solid, 2nd cycle = dashed (for BOTH charge and discharge)
             linestyle = '-'  # Default solid
-            if hasattr(trace, 'line') and hasattr(trace.line, 'dash'):
-                if trace.line.dash == 'dash':
-                    linestyle = '--'  # Dashed
-                elif trace.line.dash == 'dot':
-                    linestyle = ':'   # Dotted
-                elif trace.line.dash == 'dashdot':
-                    linestyle = '-.'  # Dash-dot
+            if cell_name in cell_cycle_order and cycle_num is not None:
+                cycle_position = cell_cycle_order[cell_name].index(cycle_num)
+                if cycle_position == 0:
+                    linestyle = '-'   # Solid for first cycle
+                elif cycle_position == 1:
+                    linestyle = '--'  # Dashed for second cycle
+                else:
+                    linestyle = ':'   # Dotted for additional cycles
             
-            # Set legend label
-            label = clean_name
+            # Set legend label with clear cycle information
+            label = name  # Keep the full name including cycle number
             
             # Plot according to mode
             if plot_mode == 'markers':
