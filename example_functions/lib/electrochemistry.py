@@ -327,13 +327,21 @@ def plot_charge_discharge(df: pd.DataFrame, cycles_to_plot: list = None,
     ]
     extended_colors = base_colors + additional_colors
     
+    # Create figure and disable automatic color cycling to ensure our explicit colors are used
     fig = go.Figure()
+    fig.update_layout(colorway=extended_colors)
     
     for i, cycle in enumerate(cycles_to_plot):
         if cycle in df['Cycle_Index'].unique():
             # Use cycle number (not index) to ensure same cycle always gets same color
             color_idx = (cycle - 1) % len(extended_colors)  # cycle-1 so cycle 1 gets first color
             cycle_color = extended_colors[color_idx]
+            
+            # Debug: Ensure color is properly formatted and consistent
+            if not isinstance(cycle_color, str):
+                cycle_color = str(cycle_color)
+            if not cycle_color.startswith('#'):
+                cycle_color = f"#{cycle_color}" if len(cycle_color) == 6 else extended_colors[0]
             
             # Get charge data for this cycle
             charge_mask = (df['Cycle_Index'] == cycle) & (df['Step_Type'] == 'Charge')
@@ -349,7 +357,7 @@ def plot_charge_discharge(df: pd.DataFrame, cycles_to_plot: list = None,
                     x=charge_data['Capacity'],
                     y=charge_data['Voltage'],
                     name=f'Cycle {cycle}',
-                    line=dict(color=cycle_color),
+                    line=dict(color=cycle_color, width=2),  # Explicit width, solid line
                     legendgroup=f'cycle_{cycle}',
                     showlegend=True
                 )
@@ -361,7 +369,7 @@ def plot_charge_discharge(df: pd.DataFrame, cycles_to_plot: list = None,
                     x=discharge_data['Capacity'],
                     y=discharge_data['Voltage'],
                     name=f'Cycle {cycle} Discharge',  # Different name to avoid confusion
-                    line=dict(color=cycle_color, dash='dot'),
+                    line=dict(color=cycle_color, width=2, dash='dot'),  # Same color and width, dotted line
                     legendgroup=f'cycle_{cycle}',
                     showlegend=False  # Explicitly hide from legend
                 )
