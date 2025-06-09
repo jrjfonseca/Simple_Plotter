@@ -112,8 +112,15 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         for i, trace in enumerate(fig.data):
             name = trace.name if hasattr(trace, 'name') else f"Trace {i}"
             
-            # Extract cell name and cycle from trace name (format: "Cell Name - Cycle X" or "Cell Name - Cycle X (Charge)")
+            # Extract cell name and cycle from trace name - MUST use same logic as second loop
+            # Handle multiple trace name patterns:
+            # 1. Multi-cell: "Cell Name - Cycle X" or "Cell Name - Cycle X (Charge)"
+            # 2. Single cell: "Cycle X" or "Cycle X Discharge"
+            cycle_num = None
+            cell_name = name
+            
             if " - Cycle " in name:
+                # Multi-cell pattern: "Cell Name - Cycle X (optional suffix)"
                 parts = name.split(" - Cycle ")
                 cell_name = parts[0]
                 cycle_part = parts[1].split(" (")[0]  # Remove "(Charge)" if present
@@ -121,9 +128,22 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                     cycle_num = int(cycle_part)
                 except ValueError:
                     cycle_num = None
-            else:
-                cell_name = name
-                cycle_num = None
+                    cell_name = name
+            elif name.startswith("Cycle "):
+                # Single cell pattern: "Cycle X" or "Cycle X Discharge"
+                # Remove "Cycle " prefix and extract number
+                name_without_prefix = name[6:]  # Remove "Cycle "
+                if " Discharge" in name_without_prefix:
+                    cycle_part = name_without_prefix.replace(" Discharge", "")
+                else:
+                    cycle_part = name_without_prefix
+                
+                try:
+                    cycle_num = int(cycle_part)
+                    cell_name = "Single Cell"  # CRITICAL: Same cell name for all single cell traces
+                except ValueError:
+                    cycle_num = None
+                    cell_name = name
             
             # Track cell groups
             if cell_name not in cell_groups:
@@ -139,6 +159,13 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         for i, cell_name in enumerate(cell_groups.keys()):
             color_idx = i % len(plotly_colors)
             cell_colors[cell_name] = plotly_colors[color_idx]
+        
+        # Debug logging to verify correct identification
+        logger.info(f"Publication plot: Found {len(cell_groups)} cell groups: {list(cell_groups.keys())}")
+        if len(cell_groups) == 1:
+            logger.info("Publication plot: Identified as SINGLE CELL scenario - using cycle-based coloring")
+        else:
+            logger.info("Publication plot: Identified as MULTI-CELL scenario - using cell-based coloring")
         
         # Create sorted cycle lists for each cell to determine line styles
         cell_cycle_order = {}
