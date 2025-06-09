@@ -73,15 +73,20 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         # Create matplotlib figure
         mpl_fig, ax = plt.subplots(figsize=(8, 6), dpi=300)
         
-        # Get extended color palette to match the original plots
+        # Get extended color palette with matplotlib-compatible colors
         try:
             import plotly.colors as pc
-            base_colors = pc.qualitative.Plotly
-            # Extend palette by combining multiple qualitative palettes (same as electrochemistry.py)
-            plotly_colors = (base_colors + 
-                           pc.qualitative.Dark2 + 
-                           pc.qualitative.Set1 + 
-                           pc.qualitative.Set3)
+            # Use only matplotlib-compatible color palettes and convert to hex format
+            base_colors = pc.qualitative.Plotly  # These are already hex format
+            # Add more colors but ensure they're in hex format
+            additional_colors = [
+                '#A6CEE3', '#1F78B4', '#B2DF8A', '#33A02C', '#FB9A99',
+                '#E31A1C', '#FDBF6F', '#FF7F00', '#CAB2D6', '#6A3D9A',
+                '#8DD3C7', '#FFFFB3', '#BEBADA', '#FB8072', '#80B1D3',
+                '#FDB462', '#B3DE69', '#FCCDE5', '#D9D9D9', '#BC80BD',
+                '#CCEBC5', '#FFED6F', '#1B9E77', '#D95F02', '#7570B3'
+            ]
+            plotly_colors = base_colors + additional_colors
         except ImportError:
             # Extended default colors if plotly.colors is not available
             plotly_colors = [
@@ -89,7 +94,9 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                 '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
                 '#A6CEE3', '#1F78B4', '#B2DF8A', '#33A02C', '#FB9A99',
                 '#E31A1C', '#FDBF6F', '#FF7F00', '#CAB2D6', '#6A3D9A',
-                '#8DD3C7', '#FFFFB3', '#BEBADA', '#FB8072', '#80B1D3'
+                '#8DD3C7', '#FFFFB3', '#BEBADA', '#FB8072', '#80B1D3',
+                '#FDB462', '#B3DE69', '#FCCDE5', '#D9D9D9', '#BC80BD',
+                '#CCEBC5', '#FFED6F', '#1B9E77', '#D95F02', '#7570B3'
             ]
         
 
@@ -203,6 +210,11 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                     # Fall back to sequential coloring
                     color_idx = i % len(plotly_colors)
                     color = plotly_colors[color_idx]
+            
+            # Ensure color is in a format matplotlib can understand
+            if not isinstance(color, str) or not color.startswith('#'):
+                # Fall back to a safe default color if there's any issue
+                color = plotly_colors[0]
             
             # Determine line style based on plot type and cycle/charge info
             linestyle = '-'  # Default solid

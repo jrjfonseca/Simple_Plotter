@@ -314,14 +314,18 @@ def plot_charge_discharge(df: pd.DataFrame, cycles_to_plot: list = None,
     if cycles_to_plot is None:
         cycles_to_plot = [1, 10, 50, 100]
     
-    # Create extended color palette for cycles (more than 10 colors)
+    # Create extended color palette for cycles (matplotlib-compatible)
     import plotly.colors as pc
-    base_colors = pc.qualitative.Plotly
-    # Extend palette by combining multiple qualitative palettes
-    extended_colors = (base_colors + 
-                      pc.qualitative.Dark2 + 
-                      pc.qualitative.Set1 + 
-                      pc.qualitative.Set3)
+    base_colors = pc.qualitative.Plotly  # These are already hex format
+    # Add more colors but ensure they're in hex format (same as publication plots)
+    additional_colors = [
+        '#A6CEE3', '#1F78B4', '#B2DF8A', '#33A02C', '#FB9A99',
+        '#E31A1C', '#FDBF6F', '#FF7F00', '#CAB2D6', '#6A3D9A',
+        '#8DD3C7', '#FFFFB3', '#BEBADA', '#FB8072', '#80B1D3',
+        '#FDB462', '#B3DE69', '#FCCDE5', '#D9D9D9', '#BC80BD',
+        '#CCEBC5', '#FFED6F', '#1B9E77', '#D95F02', '#7570B3'
+    ]
+    extended_colors = base_colors + additional_colors
     
     fig = go.Figure()
     
@@ -691,12 +695,16 @@ def plot_differential_capacity(df: pd.DataFrame, cycles: list = [1, 2],
     
     # Create extended color palette for cycles (consistent with charge-discharge plots)
     import plotly.colors as pc
-    base_colors = pc.qualitative.Plotly
-    # Extend palette by combining multiple qualitative palettes
-    extended_colors = (base_colors + 
-                      pc.qualitative.Dark2 + 
-                      pc.qualitative.Set1 + 
-                      pc.qualitative.Set3)
+    base_colors = pc.qualitative.Plotly  # These are already hex format
+    # Add more colors but ensure they're in hex format (same as other plots)
+    additional_colors = [
+        '#A6CEE3', '#1F78B4', '#B2DF8A', '#33A02C', '#FB9A99',
+        '#E31A1C', '#FDBF6F', '#FF7F00', '#CAB2D6', '#6A3D9A',
+        '#8DD3C7', '#FFFFB3', '#BEBADA', '#FB8072', '#80B1D3',
+        '#FDB462', '#B3DE69', '#FCCDE5', '#D9D9D9', '#BC80BD',
+        '#CCEBC5', '#FFED6F', '#1B9E77', '#D95F02', '#7570B3'
+    ]
+    extended_colors = base_colors + additional_colors
     
     # Process each cycle
     for cycle_idx, cycle in enumerate(cycles):
