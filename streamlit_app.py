@@ -73,12 +73,12 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
         # Create matplotlib figure
         mpl_fig, ax = plt.subplots(figsize=(8, 6), dpi=300)
         
-        # Get extended color palette with matplotlib-compatible colors
+        # Get extended color palette with matplotlib-compatible colors (MUST match electrochemistry.py exactly)
         try:
             import plotly.colors as pc
-            # Use only matplotlib-compatible color palettes and convert to hex format
+            # Use exact same color palette as electrochemistry.py for perfect consistency
             base_colors = pc.qualitative.Plotly  # These are already hex format
-            # Add more colors but ensure they're in hex format
+            # Add exact same additional colors as in electrochemistry.py
             additional_colors = [
                 '#A6CEE3', '#1F78B4', '#B2DF8A', '#33A02C', '#FB9A99',
                 '#E31A1C', '#FDBF6F', '#FF7F00', '#CAB2D6', '#6A3D9A',
@@ -88,7 +88,7 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
             ]
             plotly_colors = base_colors + additional_colors
         except ImportError:
-            # Extended default colors if plotly.colors is not available
+            # Extended default colors if plotly.colors is not available (same as electrochemistry.py fallback)
             plotly_colors = [
                 '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
                 '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
@@ -178,7 +178,14 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                     marker_symbol = symbol_map.get(trace.marker.symbol, 'o')
             
             # Extract cell name and cycle from trace name for consistent styling
+            # Handle multiple trace name patterns:
+            # 1. Multi-cell: "Cell Name - Cycle X" or "Cell Name - Cycle X (Charge)"
+            # 2. Single cell: "Cycle X" or "Cycle X Discharge"
+            cycle_num = None
+            cell_name = name
+            
             if " - Cycle " in name:
+                # Multi-cell pattern: "Cell Name - Cycle X (optional suffix)"
                 parts = name.split(" - Cycle ")
                 cell_name = parts[0]
                 cycle_part = parts[1].split(" (")[0]  # Remove "(Charge)" if present
@@ -187,9 +194,21 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                 except ValueError:
                     cycle_num = None
                     cell_name = name
-            else:
-                cell_name = name
-                cycle_num = None
+            elif name.startswith("Cycle "):
+                # Single cell pattern: "Cycle X" or "Cycle X Discharge"
+                # Remove "Cycle " prefix and extract number
+                name_without_prefix = name[6:]  # Remove "Cycle "
+                if " Discharge" in name_without_prefix:
+                    cycle_part = name_without_prefix.replace(" Discharge", "")
+                else:
+                    cycle_part = name_without_prefix
+                
+                try:
+                    cycle_num = int(cycle_part)
+                    cell_name = "Single Cell"  # Default cell name for single cell plots
+                except ValueError:
+                    cycle_num = None
+                    cell_name = name
             
             # Determine color assignment: for multi-cell (CELL-based), for single cell (CYCLE-based)
             if len(cell_groups) > 1:
@@ -201,20 +220,30 @@ def generate_publication_plot(fig, title=None, xlabel=None, ylabel=None, x_range
                     color_idx = i % len(plotly_colors)
                     color = plotly_colors[color_idx]
             else:
-                # Single cell: different color per cycle (consistent with electrochemistry.py)
+                # Single cell: different color per cycle (CRITICAL: both charge and discharge use same cycle_num)
                 if cycle_num is not None:
                     # Use cycle number (not index) to ensure same cycle always gets same color
                     color_idx = (cycle_num - 1) % len(plotly_colors)  # cycle-1 so cycle 1 gets first color
                     color = plotly_colors[color_idx]
+                    # Debug info (will be visible in browser console during development)
+                    logger.info(f"Publication plot: trace '{name}' -> cycle {cycle_num} -> color_idx {color_idx} -> color {color}")
                 else:
-                    # Fall back to sequential coloring
+                    # Fall back to sequential coloring (should not happen with fixed parsing)
                     color_idx = i % len(plotly_colors)
                     color = plotly_colors[color_idx]
+                    logger.warning(f"Publication plot: Failed to parse cycle from trace name '{name}', using fallback color")
             
-            # Ensure color is in a format matplotlib can understand
-            if not isinstance(color, str) or not color.startswith('#'):
-                # Fall back to a safe default color if there's any issue
-                color = plotly_colors[0]
+            # Ensure color is in a format matplotlib can understand (robust validation)
+            original_color = color  # Save for logging
+            if not isinstance(color, str):
+                color = str(color)
+            if not color.startswith('#'):
+                if len(color) == 6 and all(c in '0123456789ABCDEFabcdef' for c in color):
+                    color = f"#{color}"  # Add missing # prefix
+                else:
+                    # Fall back to a safe default color if there's any issue
+                    logger.warning(f"Invalid color format '{original_color}' for trace '{name}', using fallback")
+                    color = plotly_colors[0]
             
             # Determine line style based on plot type and cycle/charge info
             linestyle = '-'  # Default solid
